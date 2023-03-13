@@ -1,13 +1,12 @@
-#include <IRremote.h>
 #include <Wire.h>
 #include "Adafruit_VL53L0X.h"
 #include "Gpsneo.h"
-#include "HardwareSerial.h"
+#include "MqttClient.h"
+#include "UgvDataTypes.h"
 
 #define CLOSEOBJ(x) (x > 50)
 
 /* pin locations */
-#define IRRECPIN PB9  // IR receiver pin
 #define LMOTA PB4     // direction control motor left
 #define LMOTB PB3     // direction control motor left
 #define LMOTS PB5     // speed control motor left
@@ -37,97 +36,37 @@
 #define SPEED4 90
 #define SPEED5 0
 
-struct Dist {
-  uint16_t front;
-  uint16_t back;
-  uint16_t left;
-  uint16_t right;
-} dist;
-
-struct GpsData {
-  float latitude;
-  float longitude;
-} GpsData;
+LidarData lidardata;
+GpsData gpsdata;
+MotorData motordata;
 
 // direction control
-enum Dir { ND,
-           SD,
-           WD,
-           ED,
+enum Dir { NWD = 1,
+           ND,
            NED,
-           SED,
-           NWD,
+           WD,
+           STOP,
+           ED,
            SWD,
+           SD,
+           SED,
            ROTC,
            ROTCC,
-           STOP } comm;
+         };
 
 TwoWire WIRE1(MY_SDA, MY_SCL);
 Gpsneo gps(GPS_RX, GPS_TX);
 Adafruit_VL53L0X lox;
-HardwareSerial SerialGsm(GSM_RX, GSM_TX);
+HardwareSerial GSM(GSM_RX, GSM_TX);
+MqttClient mqtt(GSM);
 
 void getGpsData() {
   char glat[50], glong[50];
   gps.getDataGPRMC(glat, glong);
-  GpsData.latitude = gps.convertLatitude(glat);
-  GpsData.longitude = gps.convertLongitude(glong);
-  Serial.printf("Latitude: %f, Longitude: %f\n", GpsData.latitude, GpsData.longitude);
-}
-
-void getDirection() {
-  if (IrReceiver.decode()) {
-    Serial.println(IrReceiver.decodedIRData.decodedRawData);
-    switch (IrReceiver.decodedIRData.decodedRawData) {
-      case 3877175040:
-        comm = Dir::ND;
-        Serial.println(F("ND"));
-        break;
-      case 4077715200:
-        comm = Dir::NWD;
-        Serial.println(F("NWD"));
-        break;
-      case 2707357440:
-        comm = Dir::NED;
-        Serial.println(F("NED"));
-        break;
-      case 4144561920:
-        comm = Dir::WD;
-        Serial.println(F("WD"));
-        break;
-      case 2774204160:
-        comm = Dir::ED;
-        Serial.println(F("ED"));
-        break;
-      case 3175284480:
-        comm = Dir::SWD;
-        Serial.println(F("SWD"));
-        break;
-      case 2907897600:
-        comm = Dir::SD;
-        Serial.println(F("SD"));
-        break;
-      case 3041591040:
-        comm = Dir::SED;
-        Serial.println(F("SED"));
-        break;
-      case 3810328320:
-        comm = Dir::ROTC;
-        Serial.println(F("CW Rotate"));
-        break;
-      case 3910598400:
-        comm = Dir::ROTCC;
-        Serial.println(F("CCW Rotate"));
-        break;
-      case 3158572800:
-        comm = Dir::STOP;
-        Serial.println(F("Brakes"));
-        break;
-      case 1271936906: break;  // special case for infrared emitted by VL53L0X
-      default:
-        Serial.println(F("Control not programmed... Ask the programmer"));
-    }
-  }
+  gpsdata.latitude = gps.convertLatitude(glat);
+  gpsdata.longitude = gps.convertLongitude(glong);
+  mqtt.send_gps_data(gpsdata);  
+  Serial.printf("Latitude: %f, Longitude: %f\n", gpsdata.latitude, gpsdata.longitude);
 }
 
 void applyMotorDrive(char fwl, char fwr, char rev = 0) {
@@ -150,42 +89,49 @@ void applyMotorDrive(char fwl, char fwr, char rev = 0) {
 }
 
 void moveVehicle() {
-  switch (comm) {
+  int mode = 0;
+  motordata.left = SPEED1;
+  motordata.right = SPEED2;
+  switch (MqttClient::control) {
     case Dir::ND:
-      applyMotorDrive(SPEED1, SPEED1, 0);
       break;
     case Dir::ED:
-      applyMotorDrive(SPEED1, SPEED3, 0);
+      motordata.right = SPEED3;
       break;
     case Dir::WD:
-      applyMotorDrive(SPEED3, SPEED1, 0);
+      motordata.left = SPEED3;
       break;
     case Dir::NED:
-      applyMotorDrive(SPEED1, SPEED2, 0);
+      motordata.right = SPEED2;
       break;
     case Dir::NWD:
-      applyMotorDrive(SPEED2, SPEED1, 0);
+      motordata.left = SPEED2;
       break;
     case Dir::SD:
-      applyMotorDrive(SPEED1, SPEED1, 3);
+      mode = 3;
       break;
     case Dir::SWD:
-      applyMotorDrive(SPEED2, SPEED1, 3);
+      mode = 3;
+      motordata.left = SPEED2;
       break;
     case Dir::SED:
-      applyMotorDrive(SPEED1, SPEED2, 3);
+      mode = 3;
+      motordata.right = SPEED2;
       break;
     case Dir::ROTC:
-      applyMotorDrive(SPEED1, SPEED1, 1);
+      mode = 1;
       break;
     case Dir::ROTCC:
-      applyMotorDrive(SPEED1, SPEED1, 2);
+      mode = 2;
       break;
     case Dir::STOP:
-      applyMotorDrive(SPEED5, SPEED5, 0);
+    default:
+      motordata.left = SPEED5;
+      motordata.right = SPEED5;
       break;
-    default: break;
   }
+  applyMotorDrive(motordata.left, motordata.right, mode);
+  mqtt.send_motor_data(motordata);  
 }
 
 void setup() {
@@ -205,7 +151,6 @@ void setup() {
 
   // Lidar setup
   Serial.begin(115200);
-  IrReceiver.begin(IRRECPIN, DISABLE_LED_FEEDBACK);
 
   // reset tof
   do {
@@ -213,7 +158,6 @@ void setup() {
   } while (setTofAddress());
 
   // initial direction
-  comm = Dir::STOP;
   Serial.println("End of setup()");
 }
 
@@ -270,40 +214,41 @@ inline void resetTof() {
 }
 
 void probeObstacles() {
-  lox.begin(LTOFADDR);
-  dist.left = lox.readRange();
+  lox.begin(LTOFADDR, false, &WIRE1);
+  lidardata.left = lox.readRange();
 
-  lox.begin(RTOFADDR);
-  dist.right = lox.readRange();
+  lox.begin(RTOFADDR, false, &WIRE1);
+  lidardata.right = lox.readRange();
 
-  lox.begin(FTOFADDR);
-  dist.front = lox.readRange();
+  lox.begin(FTOFADDR, false, &WIRE1);
+  lidardata.front = lox.readRange();
 
-  lox.begin(BTOFADDR);
-  dist.back = lox.readRange();
+  lox.begin(BTOFADDR, false, &WIRE1);
+  lidardata.back = lox.readRange();
+
+  mqtt.send_lidar_data(lidardata);
 
   Serial.print(F("LTOF: "));
-  Serial.println(dist.left);
+  Serial.println(lidardata.left);
   Serial.print(F("RTOF: "));
-  Serial.println(dist.right);
+  Serial.println(lidardata.right);
   Serial.print(F("FTOF: "));
-  Serial.println(dist.front);
+  Serial.println(lidardata.front);
   Serial.print(F("BTOF: "));
-  Serial.println(dist.back);
+  Serial.println(lidardata.back);
 }
 
 bool allIsClear() {
-  return CLOSEOBJ(dist.front) && CLOSEOBJ(dist.back) && CLOSEOBJ(dist.left) && CLOSEOBJ(dist.right);
+  probeObstacles();
+  return CLOSEOBJ(lidardata.front) && CLOSEOBJ(lidardata.back) && CLOSEOBJ(lidardata.left) && CLOSEOBJ(lidardata.right);
 }
 
 void loop() {
-  probeObstacles();
   getGpsData();
-  getDirection();
-  if (!allIsClear()) {
-    comm = Dir::STOP;
+  if (allIsClear()) {
+    moveVehicle();
+  } else {
     Serial.println(F("There is a block"));
   }
-  moveVehicle();
-  IrReceiver.resume();
+  mqtt.loop();
 }

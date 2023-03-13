@@ -142,7 +142,6 @@ bool Gpsneo::checksum(char * string){
 	String cc = String(checksum,HEX);
 	cc.toUpperCase();
 	if (cc = check){
-		delete &cc;
 		return true;
 	}
 	else{
