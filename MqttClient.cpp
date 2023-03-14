@@ -29,19 +29,16 @@ bool MqttClient::connect_broker() {
   if (!mqtt->connect(CLIENT_ID)) {
     return false;
   }
-  mqtt->subscribe(TOPIC_INFO_GPS);
-  mqtt->subscribe(TOPIC_INFO_LIDAR);
-  mqtt->subscribe(TOPIC_INFO_MOTOR);
-  mqtt->subscribe(TOPIC_INFO_GYRO);
   mqtt->subscribe(TOPIC_CONTROL);
+  mqtt->publish(TOPIC_CONNECT_READY,"{\"connected\":true}");
   return mqtt->connected();
 }
 
 void MqttClient::mqtt_callback(char* topic, byte* payload, unsigned int len) {
-  if (!strcmp(topic, TOPIC_CONTROL)) {
+  if (strcmp(topic, TOPIC_CONTROL)) {
     return;
   }
-  StaticJsonDocument<100> doc;
+  StaticJsonDocument<24> doc;
   DeserializationError error = deserializeJson(doc, payload);
   if (error) {
     return;
@@ -50,41 +47,41 @@ void MqttClient::mqtt_callback(char* topic, byte* payload, unsigned int len) {
 }
 
 void MqttClient::send_gps_data(GpsData &data) {
-  StaticJsonDocument<200> doc;
+  StaticJsonDocument<56> doc;
   doc["longitude"] = data.longitude;
   doc["latitude"] = data.latitude;
-  char payload[200];
+  char payload[56];
   serializeJson(doc, payload);
   mqtt->publish(TOPIC_INFO_GPS, payload);
 }
 
 void MqttClient::send_lidar_data(LidarData &data) {
-  StaticJsonDocument<300> doc;
+  StaticJsonDocument<55> doc;
   doc["front"] = data.front;
   doc["back"] = data.back;
   doc["left"] = data.left;
   doc["right"] = data.right;
-  char payload[300];
+  char payload[55];
   serializeJson(doc, payload);
   mqtt->publish(TOPIC_INFO_LIDAR, payload);
 }
 
 void MqttClient::send_motor_data(MotorData &data) {
-  StaticJsonDocument<150> doc;
+  StaticJsonDocument<34> doc;
   doc["leftSpeed"] = data.left;
   doc["rightSpeed"] = data.right;
-  char payload[150];
+  char payload[34];
   serializeJson(doc, payload);
   mqtt->publish(TOPIC_INFO_MOTOR, payload);
 }
 
 void MqttClient::send_gyro_data(GyroData &data) {
-  StaticJsonDocument<400> doc;
+  StaticJsonDocument<97> doc;
   doc["xAxis"] = data.x;
   doc["yAxis"] = data.y;
   doc["zAxis"] = data.z;
   doc["accel"] = data.accel;
-  char payload[400];
+  char payload[97];
   serializeJson(doc, payload);
   mqtt->publish(TOPIC_INFO_GYRO, payload);
 }
