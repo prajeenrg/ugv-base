@@ -2,6 +2,7 @@
 #include "Adafruit_VL53L0X.h"
 #include "Gpsneo.h"
 #include "MqttClient.h"
+#include "FastIMU.h"
 #include "UgvDataTypes.h"
 
 #define CLOSEOBJ(x) (x > 50)
@@ -21,14 +22,22 @@
 #define GPS_RX PB7    // rx pin for gps
 #define MY_SDA PB9    // two wire sda pin
 #define MY_SCL PB8    // two wire scl pin
-#define GSM_TX 0      // tx pin for gsm
-#define GSM_RX 0      // rx pin for gsm
+#define GSM_TX PA2    // tx pin for gsm
+#define GSM_RX PA3    // rx pin for gsm
+
+#define BROKER_URL "test.mosquitto.org"
+#define BROKER_PORT 1883
+
+#define AIRTEL_APN "airtelgprs.com"
+#define AIRTEL_USER ""
+#define AIRTEL_PASS ""
 
 /* tof address */
 #define LTOFADDR 0x60  // new address for left tof
 #define RTOFADDR 0x61  // new address for right tof
 #define FTOFADDR 0x62  // new address for front tof
 #define BTOFADDR 0x63  // new address for back tof
+#define MPU_ADDR 0x68  // i2c address for mpu6500
 
 #define SPEED1 240
 #define SPEED2 180
@@ -39,6 +48,8 @@
 LidarData lidardata;
 GpsData gpsdata;
 MotorData motordata;
+AccelData accelData;
+GyroData gyroData;
 
 // direction control
 enum Dir { NWD = 1,
@@ -59,6 +70,7 @@ Gpsneo gps(GPS_RX, GPS_TX);
 Adafruit_VL53L0X lox;
 HardwareSerial GSM(GSM_RX, GSM_TX);
 MqttClient mqtt(GSM);
+MPU6500 mpu;
 
 void getGpsData() {
   char glat[50], glong[50];
@@ -151,6 +163,13 @@ void setup() {
 
   // Lidar setup
   Serial.begin(115200);
+  GSM.begin(9600);
+
+  // GSM setup
+  setup_gsm();
+
+  // MPU6500 setup
+  setup_mpu6500();
 
   // reset tof
   do {
@@ -159,6 +178,38 @@ void setup() {
 
   // initial direction
   Serial.println("End of setup()");
+}
+
+void setup_mpu6500() {
+  calData calib = { 0 };
+  int err = mpu.init(calib, MPU_ADDR);
+  if (err != 0) {
+    Serial.print("Error initializing MPU6500");
+    Serial.println(err);
+    while (1);
+  }
+}
+
+void get_mpudata() {
+  mpu.update();
+  mpu.getAccel(&accelData);
+  mpu.getGyro(&gyroData);
+  mqtt.send_gyro_data(gyroData);
+  mqtt.send_accel_data(accelData);  
+}
+
+void setup_gsm() {
+  mqtt.setup_modem();
+  if (!mqtt.connect_gprs(AIRTEL_APN, AIRTEL_USER, AIRTEL_PASS)) {
+    Serial.println("Failed in connecting to GPRS.");
+    while (1);
+  }
+  Serial.println("Connected to GPRS: " + String(AIRTEL_APN));
+  mqtt.set_broker(BROKER_URL, BROKER_PORT);
+  mqtt.connect_broker();
+  Serial.printf("Connecting to MQTT Broker: %s\n", BROKER_URL);
+  while (!mqtt.connect_broker()) continue;
+  Serial.println("Connected to MQTT Broker.");
 }
 
 bool setTofAddress() {
@@ -245,6 +296,7 @@ bool allIsClear() {
 
 void loop() {
   getGpsData();
+  get_mpudata();
   if (allIsClear()) {
     moveVehicle();
   } else {

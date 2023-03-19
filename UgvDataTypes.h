@@ -18,11 +18,4 @@ struct LidarData {
   uint16_t right;
 };
 
-struct GyroData {
-  float x;
-  float y;
-  float z;
-  float accel;
-};
-
 #endif

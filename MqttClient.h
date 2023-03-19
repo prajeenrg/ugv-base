@@ -5,6 +5,7 @@
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
 #include <string.h>
+#include "FastIMU.h"
 #include "UgvDataTypes.h"
 
 #define CLIENT_ID "MITECEUGV-ROVER"
@@ -14,7 +15,9 @@
 #define TOPIC_INFO_LIDAR "c83929b2-c031-11ed-afa1-0242ac120002/info/lidar"
 #define TOPIC_INFO_MOTOR "c83929b2-c031-11ed-afa1-0242ac120002/info/motor"
 #define TOPIC_INFO_GYRO "c83929b2-c031-11ed-afa1-0242ac120002/info/gyro"
+#define TOPIC_INFO_ACCEL "c83929b2-c031-11ed-afa1-0242ac120002/info/accel"
 #define TOPIC_CONTROL "c83929b2-c031-11ed-afa1-0242ac120002/control"
+#define TOPIC_CONNECTED "c83929b2-c031-11ed-afa1-0242ac120002/connection"
 
 class MqttClient {
   TinyGsm *modem;
@@ -27,15 +30,15 @@ class MqttClient {
   MqttClient(HardwareSerial&);
   ~MqttClient();
   bool connect_broker();
-  bool is_network_ready();
   bool connect_gprs(const char*, const char*, const char*);
-  void restart_modem();
   void set_broker(const char*, uint16_t);
   void loop();
+  void setup_modem();
   void send_lidar_data(LidarData&);
   void send_gps_data(GpsData&);
   void send_motor_data(MotorData&);
   void send_gyro_data(GyroData&);
+  void send_accel_data(AccelData&);
   static void mqtt_callback(char*, byte*, unsigned int);
   uint8_t get_control();
 };

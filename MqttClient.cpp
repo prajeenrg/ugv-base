@@ -8,16 +8,21 @@ MqttClient::MqttClient(HardwareSerial &serial) {
     mqtt = new PubSubClient(*client);
 }
 
-bool MqttClient::is_network_ready() {
-  return !modem->waitForNetwork();
+void MqttClient::setup_modem() {
+  Serial.println("GSM System Booting...");
+  modem->restart();
+  Serial.println("Modem Info: " + modem->getModemInfo());
+  Serial.println("Searching for Telco Provider...");
+  if (!modem->waitForNetwork()) {
+    Serial.println("Telco Provider connection failed.");
+    while (1);
+  }
+  Serial.println("Connected to Telco provider.");
+  Serial.println("Signal Quality: " + String(modem->getSignalQuality()));
 }
 
 bool MqttClient::connect_gprs(const char *apn, const char *user, const char *pass) {
   return modem->gprsConnect(apn, user, pass);
-}
-
-void MqttClient::restart_modem() {
-  modem->restart();
 }
 
 void MqttClient::set_broker(const char *broker_url, uint16_t port) {
@@ -30,7 +35,7 @@ bool MqttClient::connect_broker() {
     return false;
   }
   mqtt->subscribe(TOPIC_CONTROL);
-  mqtt->publish(TOPIC_CONNECT_READY,"{\"connected\":true}");
+  mqtt->publish(TOPIC_CONNECTED,"true");
   return mqtt->connected();
 }
 
@@ -38,7 +43,7 @@ void MqttClient::mqtt_callback(char* topic, byte* payload, unsigned int len) {
   if (strcmp(topic, TOPIC_CONTROL)) {
     return;
   }
-  StaticJsonDocument<24> doc;
+  StaticJsonDocument<100> doc;
   DeserializationError error = deserializeJson(doc, payload);
   if (error) {
     return;
@@ -77,13 +82,22 @@ void MqttClient::send_motor_data(MotorData &data) {
 
 void MqttClient::send_gyro_data(GyroData &data) {
   StaticJsonDocument<97> doc;
-  doc["xAxis"] = data.x;
-  doc["yAxis"] = data.y;
-  doc["zAxis"] = data.z;
-  doc["accel"] = data.accel;
+  doc["gyroX"] = data.gyroX;
+  doc["gyroY"] = data.gyroY;
+  doc["gyroZ"] = data.gyroZ;
   char payload[97];
   serializeJson(doc, payload);
   mqtt->publish(TOPIC_INFO_GYRO, payload);
+}
+
+void MqttClient::send_accel_data(AccelData &data) {
+  StaticJsonDocument<97> doc;
+  doc["accelX"] = data.accelX;
+  doc["accelY"] = data.accelY;
+  doc["accelZ"] = data.accelZ;
+  char payload[97];
+  serializeJson(doc, payload);
+  mqtt->publish(TOPIC_INFO_ACCEL, payload);
 }
 
 void MqttClient::loop() {
