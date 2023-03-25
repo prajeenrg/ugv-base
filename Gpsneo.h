@@ -1,6 +1,6 @@
 #ifndef Gpsneo_h
 	#define Gpsneo_h
-	#include "HardwareSerial.h"
+	#include <SoftwareSerial.h>
 	//  UNCOMMENT WHAT YOU ARE GOING TO USE
 	//#define GPGSA
 
@@ -12,7 +12,7 @@
 	#define BUFFER_2 500
 	//#define DEBUG
 
-	class Gpsneo : public HardwareSerial
+	class Gpsneo : public SoftwareSerial
 	{
 		void init (int baudrate);
 		bool checksum(char * string);

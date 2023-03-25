@@ -1,4 +1,3 @@
-#include <Wire.h>
 #include "Adafruit_VL53L0X.h"
 #include "Gpsneo.h"
 #include "MqttClient.h"
@@ -14,14 +13,12 @@
 #define RMOTA PB15    // direction control motor right
 #define RMOTB PB14    // direction control motor right
 #define RMOTS PB13    // speed control motor right
-#define LTOFPIN PA3   // left tof xshut pin
-#define RTOFPIN PA2   // right tof xshut pin
-#define FTOFPIN PA1   // front tof xshut pin
-#define BTOFPIN PA0   // back tof xshut pin
-#define GPS_TX PB6    // tx pin for gps
-#define GPS_RX PB7    // rx pin for gps
-#define MY_SDA PB9    // two wire sda pin
-#define MY_SCL PB8    // two wire scl pin
+#define LTOFPIN PA7   // left tof xshut pin
+#define RTOFPIN PA6   // right tof xshut pin
+#define FTOFPIN PA5   // front tof xshut pin
+#define BTOFPIN PA4   // back tof xshut pin
+#define GPS_TX PA0    // tx pin for gps
+#define GPS_RX PA1    // rx pin for gps
 #define GSM_TX PA2    // tx pin for gsm
 #define GSM_RX PA3    // rx pin for gsm
 
@@ -65,7 +62,6 @@ enum Dir { NWD = 1,
            ROTCC,
          };
 
-TwoWire WIRE1(MY_SDA, MY_SCL);
 Gpsneo gps(GPS_RX, GPS_TX);
 Adafruit_VL53L0X lox;
 HardwareSerial GSM(GSM_RX, GSM_TX);
@@ -216,7 +212,7 @@ bool setTofAddress() {
   digitalWrite(RTOFPIN, LOW);
   digitalWrite(FTOFPIN, LOW);
   digitalWrite(BTOFPIN, LOW);
-  if (!lox.begin(LTOFADDR, false, &WIRE1)) {
+  if (!lox.begin(LTOFADDR, false)) {
     Serial.println(F("LTOF cannot be found"));
     return true;
   } else {
@@ -224,7 +220,7 @@ bool setTofAddress() {
   }
 
   digitalWrite(RTOFPIN, HIGH);
-  if (!lox.begin(RTOFADDR, false, &WIRE1)) {
+  if (!lox.begin(RTOFADDR, false)) {
     Serial.println(F("RTOF cannot be found"));
     return true;
   } else {
@@ -232,7 +228,7 @@ bool setTofAddress() {
   }
 
   digitalWrite(FTOFPIN, HIGH);
-  if (!lox.begin(FTOFADDR, false, &WIRE1)) {
+  if (!lox.begin(FTOFADDR, false)) {
     Serial.println(F("FTOF cannot be found"));
     return true;
   } else {
@@ -240,7 +236,7 @@ bool setTofAddress() {
   }
   
   digitalWrite(BTOFPIN, HIGH);
-  if (!lox.begin(BTOFADDR, false, &WIRE1)) {
+  if (!lox.begin(BTOFADDR, false)) {
     Serial.println(F("BTOF cannot be found"));
     return true;
   } else {
@@ -265,31 +261,27 @@ inline void resetTof() {
 }
 
 void probeObstacles() {
-  lox.begin(LTOFADDR, false, &WIRE1);
+  lox.begin(LTOFADDR, false);
   lidardata.left = lox.readRange();
 
-  lox.begin(RTOFADDR, false, &WIRE1);
+  lox.begin(RTOFADDR, false);
   lidardata.right = lox.readRange();
 
-  lox.begin(FTOFADDR, false, &WIRE1);
+  lox.begin(FTOFADDR, false);
   lidardata.front = lox.readRange();
 
-  lox.begin(BTOFADDR, false, &WIRE1);
+  lox.begin(BTOFADDR, false);
   lidardata.back = lox.readRange();
 
   mqtt.send_lidar_data(lidardata);
 
-  Serial.print(F("LTOF: "));
-  Serial.println(lidardata.left);
-  Serial.print(F("RTOF: "));
-  Serial.println(lidardata.right);
-  Serial.print(F("FTOF: "));
-  Serial.println(lidardata.front);
-  Serial.print(F("BTOF: "));
-  Serial.println(lidardata.back);
+  Serial.printf("LTOF: %d\n", lidardata.left);
+  Serial.printf("RTOF: %d\n", lidardata.right);
+  Serial.printf("FTOF: %d\n", lidardata.front);
+  Serial.printf("BTOF: %d\n", lidardata.back);
 }
 
-bool allIsClear() {
+bool isAllClear() {
   probeObstacles();
   return CLOSEOBJ(lidardata.front) && CLOSEOBJ(lidardata.back) && CLOSEOBJ(lidardata.left) && CLOSEOBJ(lidardata.right);
 }
@@ -297,7 +289,7 @@ bool allIsClear() {
 void loop() {
   getGpsData();
   get_mpudata();
-  if (allIsClear()) {
+  if (isAllClear()) {
     moveVehicle();
   } else {
     Serial.println(F("There is a block"));
