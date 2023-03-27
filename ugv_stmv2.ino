@@ -1,7 +1,8 @@
+#include <Wire.h>
 #include "Adafruit_VL53L0X.h"
 #include "Gpsneo.h"
 #include "MqttClient.h"
-#include "FastIMU.h"
+#include "mpu6500x.h"
 #include "UgvDataTypes.h"
 
 #define CLOSEOBJ(x) (x > 50)
@@ -21,6 +22,9 @@
 #define GPS_RX PA1    // rx pin for gps
 #define GSM_TX PA2    // tx pin for gsm
 #define GSM_RX PA3    // rx pin for gsm
+#define SDA_PIN PB9   // sda pin
+#define SCL_PIN PB8   // scl pin
+TwoWire WIRE1(SDA_PIN, SCL_PIN);
 
 #define BROKER_URL "test.mosquitto.org"
 #define BROKER_PORT 1883
@@ -62,11 +66,11 @@ enum Dir { NWD = 1,
            ROTCC,
          };
 
-Gpsneo gps(GPS_RX, GPS_TX);
+Gpsneo gps(GPS_TX, GPS_RX);
 Adafruit_VL53L0X lox;
 HardwareSerial GSM(GSM_RX, GSM_TX);
 MqttClient mqtt(GSM);
-MPU6500 mpu;
+MPU6500X mpu;
 
 void getGpsData() {
   char glat[50], glong[50];
@@ -178,7 +182,7 @@ void setup() {
 
 void setup_mpu6500() {
   calData calib = { 0 };
-  int err = mpu.init(calib, MPU_ADDR);
+  int err = mpu.init(calib, MPU_ADDR, SDA_PIN, SCL_PIN);
   if (err != 0) {
     Serial.print("Error initializing MPU6500");
     Serial.println(err);
@@ -203,8 +207,7 @@ void setup_gsm() {
   Serial.println("Connected to GPRS: " + String(AIRTEL_APN));
   mqtt.set_broker(BROKER_URL, BROKER_PORT);
   mqtt.connect_broker();
-  Serial.printf("Connecting to MQTT Broker: %s\n", BROKER_URL);
-  while (!mqtt.connect_broker()) continue;
+  while (!mqtt.connect_broker()) Serial.printf("Connecting to MQTT Broker: %s\n", BROKER_URL);
   Serial.println("Connected to MQTT Broker.");
 }
 
@@ -212,7 +215,7 @@ bool setTofAddress() {
   digitalWrite(RTOFPIN, LOW);
   digitalWrite(FTOFPIN, LOW);
   digitalWrite(BTOFPIN, LOW);
-  if (!lox.begin(LTOFADDR, false)) {
+  if (!lox.begin(LTOFADDR, false, &WIRE1)) {
     Serial.println(F("LTOF cannot be found"));
     return true;
   } else {
@@ -220,7 +223,7 @@ bool setTofAddress() {
   }
 
   digitalWrite(RTOFPIN, HIGH);
-  if (!lox.begin(RTOFADDR, false)) {
+  if (!lox.begin(RTOFADDR, false, &WIRE1)) {
     Serial.println(F("RTOF cannot be found"));
     return true;
   } else {
@@ -228,7 +231,7 @@ bool setTofAddress() {
   }
 
   digitalWrite(FTOFPIN, HIGH);
-  if (!lox.begin(FTOFADDR, false)) {
+  if (!lox.begin(FTOFADDR, false, &WIRE1)) {
     Serial.println(F("FTOF cannot be found"));
     return true;
   } else {
@@ -236,7 +239,7 @@ bool setTofAddress() {
   }
   
   digitalWrite(BTOFPIN, HIGH);
-  if (!lox.begin(BTOFADDR, false)) {
+  if (!lox.begin(BTOFADDR, false, &WIRE1)) {
     Serial.println(F("BTOF cannot be found"));
     return true;
   } else {
@@ -261,16 +264,16 @@ inline void resetTof() {
 }
 
 void probeObstacles() {
-  lox.begin(LTOFADDR, false);
+  lox.begin(LTOFADDR, false, &WIRE1);
   lidardata.left = lox.readRange();
 
-  lox.begin(RTOFADDR, false);
+  lox.begin(RTOFADDR, false, &WIRE1);
   lidardata.right = lox.readRange();
 
-  lox.begin(FTOFADDR, false);
+  lox.begin(FTOFADDR, false, &WIRE1);
   lidardata.front = lox.readRange();
 
-  lox.begin(BTOFADDR, false);
+  lox.begin(BTOFADDR, false, &WIRE1);
   lidardata.back = lox.readRange();
 
   mqtt.send_lidar_data(lidardata);

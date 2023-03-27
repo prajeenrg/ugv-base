@@ -79,17 +79,17 @@ void split(char * string,char * separator,unsigned int position,char *dest){
 
 //--------------------------------------------Constructors
 
-Gpsneo::Gpsneo(void) : SoftwareSerial(RX_PIN_DEFAULT,TX_PIN_DEFAULT)
+Gpsneo::Gpsneo(void) : HardwareSerial(RX_PIN_DEFAULT,TX_PIN_DEFAULT)
 {  
 	init(BAUDRATE_DEFAULT);
 }
 
-Gpsneo::Gpsneo(uint8_t rx, uint8_t tx) : SoftwareSerial(rx,tx)
+Gpsneo::Gpsneo(uint8_t rx, uint8_t tx) : HardwareSerial(rx,tx)
 {  
 	init(BAUDRATE_DEFAULT);
 }
 
-Gpsneo::Gpsneo(uint8_t rx, uint8_t tx,long baudrate) : SoftwareSerial(rx,tx)
+Gpsneo::Gpsneo(uint8_t rx, uint8_t tx,long baudrate) : HardwareSerial(rx,tx)
 {  
 	init(baudrate);
 }
