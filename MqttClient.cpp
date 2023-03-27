@@ -36,6 +36,7 @@ bool MqttClient::connect_broker() {
   }
   mqtt->subscribe(TOPIC_CONTROL);
   mqtt->publish(TOPIC_CONNECTED,"true");
+  send_network_info();
   return mqtt->connected();
 }
 
@@ -98,6 +99,20 @@ void MqttClient::send_accel_data(AccelData &data) {
   char payload[97];
   serializeJson(doc, payload);
   mqtt->publish(TOPIC_INFO_ACCEL, payload);
+}
+
+void MqttClient::send_network_info() {
+  StaticJsonDocument<300> doc;
+  doc["strength"] = -113 + (2 * modem->getSignalQuality());
+  doc["operator"] = modem->getOperator();
+  doc["ipaddr"] = modem->getLocalIP();
+  doc["volt"] = modem->getBattVoltage();
+  doc["imei"] = modem->getIMEI();
+  doc["imsi"] = modem->getIMSI();
+  doc["ccid"] = modem->getSimCCID();
+  char payload[300];
+  serializeJson(doc, payload);
+  mqtt->publish(TOPIC_INFO_NETWORK, payload);
 }
 
 void MqttClient::loop() {

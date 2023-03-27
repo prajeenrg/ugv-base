@@ -18,6 +18,7 @@
 #define TOPIC_INFO_ACCEL "c83929b2-c031-11ed-afa1-0242ac120002/info/accel"
 #define TOPIC_CONTROL "c83929b2-c031-11ed-afa1-0242ac120002/control"
 #define TOPIC_CONNECTED "c83929b2-c031-11ed-afa1-0242ac120002/connection"
+#define TOPIC_INFO_NETWORK "c83929b2-c031-11ed-afa1-0242ac120002/info/network"
 
 class MqttClient {
   TinyGsm *modem;
@@ -39,6 +40,7 @@ class MqttClient {
   void send_motor_data(MotorData&);
   void send_gyro_data(GyroData&);
   void send_accel_data(AccelData&);
+  void send_network_info();
   static void mqtt_callback(char*, byte*, unsigned int);
   uint8_t get_control();
 };
