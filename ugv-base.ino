@@ -5,7 +5,9 @@
 #include "FastIMU.h"
 #include "UgvDataTypes.h"
 
-#define CLOSEOBJ(x) (x > 50)
+#define LESS_THAN(x, y) x < y
+
+#define SAFE_DISTANCE_MM 40
 
 /* motor controls pins */
 #define MOTOR_AB1 PB12
@@ -78,6 +80,35 @@ HardwareSerial GSM(GSM_TX, GSM_RX);
 MqttClient mqtt(GSM);
 MPU6500 mpu;
 
+void setup_gsm() {
+  mqtt.setup_modem();
+  while (!mqtt.connect_gprs(AIRTEL_APN, AIRTEL_USER, AIRTEL_PASS)) {
+    Serial.println(F("Failed initiating GPRS network"));
+    Serial.println(F("Retrying GPRS establishment after 1s..."));
+    delay(1000);
+  }
+  Serial.println("Connected to GPRS: " + String(AIRTEL_APN));
+  Serial.println(F("Connecting to MQTT Broker..."));
+  mqtt.set_broker(BROKER_URL, BROKER_PORT);
+  mqtt.connect_broker();
+  while (!mqtt.connect_broker()) {
+    Serial.println(F("Failed in connecting to MQTT Broker"));
+    Serial.println(F("Retrying connection after 1s..."));
+    delay(1000);
+  }
+  Serial.println(F("Connected to MQTT Broker."));
+}
+
+void setup_mpu6500() {
+  calData calib = { 0 };
+  int err = mpu.init(calib, MPU_ADDR);
+  if (err != 0) {
+    Serial.print(F("Error initializing MPU6500, error code: "));
+    Serial.println(err);
+    while (1);
+  }
+}
+
 void getGpsData() {
   char glat[50], glong[50];
   gps.getDataGPRMC(glat, glong);
@@ -147,17 +178,11 @@ void moveVehicle() {
       break;
   }
   applyMotorDrive(motordata.left, motordata.right, mode);
-  mqtt.send_motor_data(motordata);  
-}
+  mqtt.send_motor_data(motordata);
 
-void setup_mpu6500() {
-  calData calib = { 0 };
-  int err = mpu.init(calib, MPU_ADDR);
-  if (err != 0) {
-    Serial.print("Error initializing MPU6500");
-    Serial.println(err);
-    while (1);
-  }
+  Serial.println(F("Motor Data:"));
+  Serial.printf("Left Speed: %d\n", motordata.left);
+  Serial.printf("Right Speed: %d\n", motordata.right);  
 }
 
 void get_mpudata() {
@@ -165,20 +190,16 @@ void get_mpudata() {
   mpu.getAccel(&accelData);
   mpu.getGyro(&gyroData);
   mqtt.send_gyro_data(gyroData);
-  mqtt.send_accel_data(accelData);  
-}
+  mqtt.send_accel_data(accelData);
 
-void setup_gsm() {
-  mqtt.setup_modem();
-  if (!mqtt.connect_gprs(AIRTEL_APN, AIRTEL_USER, AIRTEL_PASS)) {
-    Serial.println("Failed in connecting to GPRS.");
-    while (1);
-  }
-  Serial.println("Connected to GPRS: " + String(AIRTEL_APN));
-  mqtt.set_broker(BROKER_URL, BROKER_PORT);
-  mqtt.connect_broker();
-  while (!mqtt.connect_broker()) Serial.printf("Connecting to MQTT Broker: %s\n", BROKER_URL);
-  Serial.println("Connected to MQTT Broker.");
+  Serial.println(F("Gyroscope Data:"));
+  Serial.printf("X axis: %f\n", gyroData.gyroX);
+  Serial.printf("Y axis: %f\n", gyroData.gyroY);
+  Serial.printf("Z axis: %f\n", gyroData.gyroZ);
+  Serial.println(F("Accelerometer Data:"));
+  Serial.printf("X axis: %f\n", accelData.accelX);
+  Serial.printf("Y axis: %f\n", accelData.accelY);
+  Serial.printf("Z axis: %f\n", accelData.accelZ);
 }
 
 bool setTofAddress() {
@@ -233,7 +254,7 @@ inline void resetTof() {
   delay(10);
 }
 
-void probeObstacles() {
+void getRangingResults() {
   lox.begin(TOF_ADDR_4, false);
   lidardata.left = lox.readRange();
 
@@ -248,53 +269,58 @@ void probeObstacles() {
 
   mqtt.send_lidar_data(lidardata);
 
-  Serial.printf("LTOF: %d\n", lidardata.left);
-  Serial.printf("RTOF: %d\n", lidardata.right);
-  Serial.printf("FTOF: %d\n", lidardata.front);
-  Serial.printf("BTOF: %d\n", lidardata.back);
+  Serial.println(F("TOF Ranging Results:"));
+  Serial.printf("TOF 1: %d\n", lidardata.front);
+  Serial.printf("TOF 2: %d\n", lidardata.right);
+  Serial.printf("TOF 3: %d\n", lidardata.back);
+  Serial.printf("TOF 4: %d\n", lidardata.left);
 }
 
-bool isAllClear() {
-  probeObstacles();
-  return CLOSEOBJ(lidardata.front) && CLOSEOBJ(lidardata.back) && CLOSEOBJ(lidardata.left) && CLOSEOBJ(lidardata.right);
+bool checkObstacle() {
+  return LESS_THAN(lidardata.front, SAFE_DISTANCE_MM) ||
+    LESS_THAN(lidardata.back, SAFE_DISTANCE_MM) ||
+    LESS_THAN(lidardata.left, SAFE_DISTANCE_MM) ||
+    LESS_THAN(lidardata.right, SAFE_DISTANCE_MM);
 }
 
 void setup() {
-  // motor driver pins
+  Serial.begin(115200);
+  Serial.println(F("Initializing the pins and peripherals..."));
+
+  Serial.println(F("Setting pin modes..."));
   pinMode(MOTOR_AB1, OUTPUT);
   pinMode(MOTOR_AB2, OUTPUT);
   pinMode(MOTOR_CD1, OUTPUT);
   pinMode(MOTOR_CD2, OUTPUT);
-
-  // lidar setup
   pinMode(XSHUT_4, OUTPUT);
   pinMode(XSHUT_1, OUTPUT);
   pinMode(XSHUT_3, OUTPUT);
   pinMode(XSHUT_2, OUTPUT);
+  Serial.println(F("Pins modes has been set!"));
 
-  // Lidar setup
-  Serial.begin(115200);
+  Serial.println("Setting up GSM Module...");
   GSM.begin(9600);
-
-  // GSM setup
   setup_gsm();
+  Serial.println(F("GSM Module setup completed!"));
 
-  // MPU6500 setup
+  Serial.println(F("Setting up MPU6500 Sensor..."));
   setup_mpu6500();
+  Serial.println(F("MPU6500 sensor setup completed!"));
 
-  // reset tof
+  Serial.println(F("Setting up ToF sensors..."));
   do {
    resetTof();
   } while (setTofAddress());
+  Serial.println(F("ToF sensors setup completed!"));
 
-  // initial direction
-  Serial.println("End of setup()");
+  Serial.println(F("Initialization successfully completed!!!"));
 }
 
 void loop() {
   getGpsData();
   get_mpudata();
-  if (isAllClear()) {
+  getRangingResults();
+  if (checkObstacle()) {
     moveVehicle();
   } else {
     Serial.println(F("There is a block"));
