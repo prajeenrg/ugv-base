@@ -43,77 +43,42 @@ bool MqttClient::connect_broker() {
 }
 
 void MqttClient::mqtt_callback(char* topic, byte* payload, unsigned int len) {
-  if (strcmp(topic, TOPIC_CONTROL)) {
-    return;
-  }
-  StaticJsonDocument<100> doc;
-  DeserializationError error = deserializeJson(doc, payload);
-  if (error) {
-    return;
-  }
-  MqttClient::control = doc["id"];
+  MqttClient::control = atoi(payload);
 }
 
-void MqttClient::send_gps_data(GpsData &data) {
-  StaticJsonDocument<56> doc;
-  doc["longitude"] = data.longitude;
-  doc["latitude"] = data.latitude;
+void MqttClient::send_gps_data(float lat, float lon) {
   char payload[56];
-  serializeJson(doc, payload);
+  sprintf(payload, "{\"latitude\":%f,\"longitude\":%f}", lat, lon);
   mqtt->publish(TOPIC_INFO_GPS, payload);
 }
 
-void MqttClient::send_lidar_data(LidarData &data) {
-  StaticJsonDocument<55> doc;
-  doc["front"] = data.front;
-  doc["back"] = data.back;
-  doc["left"] = data.left;
-  doc["right"] = data.right;
+void MqttClient::send_lidar_data(uint16_t front, uint16_t right, uint16_t back, uint16_t left) {
   char payload[55];
-  serializeJson(doc, payload);
+  sprintf(payload, "{\"front\":%i,\"back\":%i,\"left\":%i,\"right\":%i}", front, back, left, right);
   mqtt->publish(TOPIC_INFO_LIDAR, payload);
 }
 
-void MqttClient::send_motor_data(MotorData &data) {
-  StaticJsonDocument<34> doc;
-  doc["leftSpeed"] = data.left;
-  doc["rightSpeed"] = data.right;
+void MqttClient::send_motor_data(byte left, byte right) {
   char payload[34];
-  serializeJson(doc, payload);
+  sprintf(payload, "{\"left\":%i,\"right\":%i}", left, right);
   mqtt->publish(TOPIC_INFO_MOTOR, payload);
 }
 
-void MqttClient::send_gyro_data(GyroData &data) {
-  StaticJsonDocument<97> doc;
-  doc["gyroX"] = data.gyroX;
-  doc["gyroY"] = data.gyroY;
-  doc["gyroZ"] = data.gyroZ;
+void MqttClient::send_gyro_data(float x, float y, float z) {
   char payload[97];
-  serializeJson(doc, payload);
+  sprintf(payload, "{\"gyroX\":%f,\"gyroY\":%f,\"gyroZ\":%f}", x, y, z);
   mqtt->publish(TOPIC_INFO_GYRO, payload);
 }
 
-void MqttClient::send_accel_data(AccelData &data) {
-  StaticJsonDocument<97> doc;
-  doc["accelX"] = data.accelX;
-  doc["accelY"] = data.accelY;
-  doc["accelZ"] = data.accelZ;
+void MqttClient::send_accel_data(float x, float y, float z) {
   char payload[97];
-  serializeJson(doc, payload);
+  sprintf(payload, "{\"accelX\":%f,\"accelY\":%f,\"accelZ\":%f}", x, y, z);
   mqtt->publish(TOPIC_INFO_ACCEL, payload);
 }
 
 void MqttClient::send_network_info() {
-  StaticJsonDocument<300> doc;
-  doc["strength"] = -113 + (2 * modem->getSignalQuality());
-  doc["operator"] = modem->getOperator();
-  doc["ipaddr"] = modem->getLocalIP();
-  doc["volt"] = modem->getBattVoltage();
-  doc["imei"] = modem->getIMEI();
-  doc["imsi"] = modem->getIMSI();
-  doc["ccid"] = modem->getSimCCID();
-  char payload[300];
-  serializeJson(doc, payload);
+  char payload[200];
+  sprintf(payload, "{\"strength\":%d,\"operator\":%s}", -113 + (2 * modem->getSignalQuality()), modem->getOperator());
   mqtt->publish(TOPIC_INFO_NETWORK, payload);
 }
 

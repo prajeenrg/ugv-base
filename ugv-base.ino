@@ -3,7 +3,6 @@
 #include "Gpsneo.h"
 #include "MqttClient.h"
 #include "FastIMU.h"
-#include "UgvDataTypes.h"
 
 #define LESS_THAN(x, y) x < y
 
@@ -106,14 +105,13 @@ void setup_mpu6500() {
 void getGpsData() {
   char glat[50], glong[50];
   gps.getDataGPRMC(glat, glong);
-  GpsData gpsdata;
-  gpsdata.latitude = gps.convertLatitude(glat);
-  gpsdata.longitude = gps.convertLongitude(glong);
-  mqtt.send_gps_data(gpsdata);  
+  float glati = gps.convertLatitude(glat);
+  float glongi = gps.convertLongitude(glong);
+  mqtt.send_gps_data(glati, glongi);
   Serial.print(F("Latitude: "));
-  Serial.print(glat);
+  Serial.print(glati);
   Serial.print(F(", Longitude: "));
-  Serial.println(glong);
+  Serial.println(glongi);
 }
 
 void applyMotorDrive(char fwl, char fwr, char rev = 0) {
@@ -134,35 +132,34 @@ void applyMotorDrive(char fwl, char fwr, char rev = 0) {
 }
 
 void moveVehicle() {
-  MotorData motordata;
-  int mode = 0;
-  motordata.left = SPEED1;
-  motordata.right = SPEED2;
+  byte mode = 0;
+  byte left = SPEED1;
+  byte right = SPEED2;
   switch (MqttClient::control) {
     case Dir::ND:
       break;
     case Dir::ED:
-      motordata.right = SPEED3;
+      right = SPEED3;
       break;
     case Dir::WD:
-      motordata.left = SPEED3;
+      left = SPEED3;
       break;
     case Dir::NED:
-      motordata.right = SPEED2;
+      right = SPEED2;
       break;
     case Dir::NWD:
-      motordata.left = SPEED2;
+      left = SPEED2;
       break;
     case Dir::SD:
       mode = 3;
       break;
     case Dir::SWD:
       mode = 3;
-      motordata.left = SPEED2;
+      left = SPEED2;
       break;
     case Dir::SED:
       mode = 3;
-      motordata.right = SPEED2;
+      right = SPEED2;
       break;
     case Dir::ROTC:
       mode = 1;
@@ -172,18 +169,18 @@ void moveVehicle() {
       break;
     case Dir::STOP:
     default:
-      motordata.left = SPEED5;
-      motordata.right = SPEED5;
+      left = SPEED5;
+      right = SPEED5;
       break;
   }
-  applyMotorDrive(motordata.left, motordata.right, mode);
-  mqtt.send_motor_data(motordata);
+  applyMotorDrive(left, right, mode);
+  mqtt.send_motor_data(left, right);
 
   Serial.println(F("Motor Data:"));
   Serial.print(F("Left Speed: ")); 
-  Serial.println(motordata.left);
+  Serial.println(left);
   Serial.print(F("Right Speed: ")); 
-  Serial.println(motordata.right);  
+  Serial.println(right);
 }
 
 void get_mpudata() {
@@ -192,8 +189,8 @@ void get_mpudata() {
   mpu.update();
   mpu.getAccel(&accelData);
   mpu.getGyro(&gyroData);
-  mqtt.send_gyro_data(gyroData);
-  mqtt.send_accel_data(accelData);
+  mqtt.send_gyro_data(gyroData.gyroX, gyroData.gyroY, gyroData.gyroZ);
+  mqtt.send_accel_data(accelData.accelX, accelData.accelY, accelData.accelZ);
 
   Serial.println(F("Gyroscope Data:"));
   Serial.print(F("X axis: "));
@@ -274,28 +271,27 @@ uint16_t getTofData(uint8_t addr) {
 
 bool getRangingResults() {
   VL53L0X lox;
-  LidarData lidardata;
-  lidardata.left = getTofData(TOF_ADDR_4);
-  lidardata.right = getTofData(TOF_ADDR_2);
-  lidardata.front = getTofData(TOF_ADDR_1);
-  lidardata.back = getTofData(TOF_ADDR_3);
+  uint16_t left = getTofData(TOF_ADDR_4);
+  uint16_t right = getTofData(TOF_ADDR_2);
+  uint16_t front = getTofData(TOF_ADDR_1);
+  uint16_t back = getTofData(TOF_ADDR_3);
 
-  mqtt.send_lidar_data(lidardata);
+  mqtt.send_lidar_data(front, right, back, left);
 
   Serial.println(F("TOF Ranging Results:"));
   Serial.print(F("TOF 1: "));
-  Serial.println(lidardata.front);
+  Serial.println(front);
   Serial.print(F("TOF 2: ")); 
-  Serial.println(lidardata.right);
+  Serial.println(right);
   Serial.print(F("TOF 3: ")); 
-  Serial.println(lidardata.back);
+  Serial.println(back);
   Serial.print(F("TOF 4: ")); 
-  Serial.println(lidardata.left);
+  Serial.println(left);
 
-  return LESS_THAN(lidardata.front, SAFE_DISTANCE_MM) ||
-    LESS_THAN(lidardata.back, SAFE_DISTANCE_MM) ||
-    LESS_THAN(lidardata.left, SAFE_DISTANCE_MM) ||
-    LESS_THAN(lidardata.right, SAFE_DISTANCE_MM);
+  return LESS_THAN(front, SAFE_DISTANCE_MM) ||
+    LESS_THAN(back, SAFE_DISTANCE_MM) ||
+    LESS_THAN(left, SAFE_DISTANCE_MM) ||
+    LESS_THAN(right, SAFE_DISTANCE_MM);
 }
 
 void setup() {

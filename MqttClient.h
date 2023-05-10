@@ -1,12 +1,9 @@
-#define TINY_GSM_MODEM_SIM800
+#define TINY_GSM_MODEM_SIM900
 
 #include <SoftwareSerial.h>
 #include <TinyGsmClient.h>
 #include <PubSubClient.h>
-#include <ArduinoJson.h>
 #include <string.h>
-#include "FastIMU.h"
-#include "UgvDataTypes.h"
 
 #define CLIENT_ID "MITECEUGV-ROVER"
 
@@ -35,11 +32,11 @@ class MqttClient {
   void set_broker(const char*, uint16_t);
   void loop();
   void setup_modem();
-  void send_lidar_data(LidarData&);
-  void send_gps_data(GpsData&);
-  void send_motor_data(MotorData&);
-  void send_gyro_data(GyroData&);
-  void send_accel_data(AccelData&);
+  void send_lidar_data(uint16_t, uint16_t, uint16_t, uint16_t);
+  void send_gps_data(float, float);
+  void send_motor_data(byte, byte);
+  void send_gyro_data(float, float, float);
+  void send_accel_data(float, float, float);
   void send_network_info();
   static void mqtt_callback(char*, byte*, unsigned int);
   uint8_t get_control();
