@@ -1,5 +1,5 @@
 #include <Wire.h>
-#include "Adafruit_VL53L0X.h"
+#include <VL53L0X.h>
 #include "Gpsneo.h"
 #include "MqttClient.h"
 #include "FastIMU.h"
@@ -211,40 +211,42 @@ void get_mpudata() {
   Serial.println(accelData.accelZ);
 }
 
+bool initTof(uint8_t addr) {
+  VL53L0X lox;
+  lox.setAddress(addr);
+  if (!lox.init()) {
+    Serial.println(F("LTOF cannot be found"));
+    return false;
+  }
+  lox.startContinuous();
+  return true;
+}
+
 bool setTofAddress() {
-  Adafruit_VL53L0X lox;
   digitalWrite(XSHUT_2, LOW);
   digitalWrite(XSHUT_1, LOW);
   digitalWrite(XSHUT_3, LOW);
-  if (!lox.begin(TOF_ADDR_4, false)) {
+  if (!initTof(TOF_ADDR_4)) {
     Serial.println(F("LTOF cannot be found"));
     return true;
-  } else {
-    lox.startRangeContinuous();
   }
 
   digitalWrite(XSHUT_2, HIGH);
-  if (!lox.begin(TOF_ADDR_2, false)) {
+  if (!initTof(TOF_ADDR_2)) {
     Serial.println(F("RTOF cannot be found"));
     return true;
-  } else {
-    lox.startRangeContinuous();
   }
 
   digitalWrite(XSHUT_1, HIGH);
-  if (!lox.begin(TOF_ADDR_1, false)) {
+  if (!initTof(TOF_ADDR_1)) {
     Serial.println(F("FTOF cannot be found"));
     return true;
-  } else {
-    lox.startRangeContinuous();
   }
   
   digitalWrite(XSHUT_3, HIGH);
-  if (!lox.begin(TOF_ADDR_3, false)) {
+  if (!initTof(TOF_ADDR_3)) {
     Serial.println(F("BTOF cannot be found"));
     return true;
-  } else {
-    lox.startRangeContinuous();
   }
 
   Serial.println(F("All TOFs ready for launch"));
@@ -264,20 +266,19 @@ inline void resetTof() {
   delay(10);
 }
 
+uint16_t getTofData(uint8_t addr) {
+  VL53L0X lox;
+  lox.setAddress(addr);
+  return lox.readRangeContinuousMillimeters();
+}
+
 bool getRangingResults() {
-  Adafruit_VL53L0X lox;
+  VL53L0X lox;
   LidarData lidardata;
-  lox.begin(TOF_ADDR_4, false);
-  lidardata.left = lox.readRange();
-
-  lox.begin(TOF_ADDR_2, false);
-  lidardata.right = lox.readRange();
-
-  lox.begin(TOF_ADDR_1, false);
-  lidardata.front = lox.readRange();
-
-  lox.begin(TOF_ADDR_3, false);
-  lidardata.back = lox.readRange();
+  lidardata.left = getTofData(TOF_ADDR_4);
+  lidardata.right = getTofData(TOF_ADDR_2);
+  lidardata.front = getTofData(TOF_ADDR_1);
+  lidardata.back = getTofData(TOF_ADDR_3);
 
   mqtt.send_lidar_data(lidardata);
 
