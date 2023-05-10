@@ -2,7 +2,7 @@
 #include <VL53L0X.h>
 #include "Gpsneo.h"
 #include "MqttClient.h"
-#include "FastIMU.h"
+// #include "FastIMU.h"
 
 #define LESS_THAN(x, y) x < y
 
@@ -70,7 +70,7 @@ enum Dir {
 Gpsneo gps(GPS_TX, GPS_RX);
 SoftwareSerial GSM(GSM_TX, GSM_RX);
 MqttClient mqtt(GSM);
-MPU6500 mpu;
+// MPU6500 mpu;
 
 void setup_gsm() {
   mqtt.setup_modem();
@@ -92,15 +92,15 @@ void setup_gsm() {
   //Serial.println(F("Connected to MQTT Broker."));
 }
 
-void setup_mpu6500() {
-  calData calib = { 0 };
-  int err = mpu.init(calib, MPU_ADDR);
-  if (err != 0) {
-    //Serial.print(F("Error initializing MPU6500, error code: "));
-    //Serial.println(err);
-    while (1);
-  }
-}
+// void setup_mpu6500() {
+//   calData calib = { 0 };
+//   int err = mpu.init(calib, MPU_ADDR);
+//   if (err != 0) {
+//     //Serial.print(F("Error initializing MPU6500, error code: "));
+//     //Serial.println(err);
+//     while (1);
+//   }
+// }
 
 void getGpsData() {
   char glat[50], glong[50];
@@ -183,30 +183,30 @@ void moveVehicle() {
   //Serial.println(right);
 }
 
-void get_mpudata() {
-  GyroData gyroData;
-  AccelData accelData;
-  mpu.update();
-  mpu.getAccel(&accelData);
-  mpu.getGyro(&gyroData);
-  mqtt.send_gyro_data(gyroData.gyroX, gyroData.gyroY, gyroData.gyroZ);
-  mqtt.send_accel_data(accelData.accelX, accelData.accelY, accelData.accelZ);
+// void get_mpudata() {
+//   GyroData gyroData;
+//   AccelData accelData;
+//   mpu.update();
+//   mpu.getAccel(&accelData);
+//   mpu.getGyro(&gyroData);
+//   mqtt.send_gyro_data(gyroData.gyroX, gyroData.gyroY, gyroData.gyroZ);
+//   mqtt.send_accel_data(accelData.accelX, accelData.accelY, accelData.accelZ);
 
-  //Serial.println(F("Gyroscope Data:"));
-  //Serial.print(F("X axis: "));
-  //Serial.println(gyroData.gyroX);
-  //Serial.print(F("Y axis: "));
-  //Serial.println(gyroData.gyroY);
-  //Serial.print(F("Z axis: "));
-  //Serial.println(gyroData.gyroZ);
-  //Serial.println(F("Accelerometer Data:"));
-  //Serial.print(F("X axis: "));
-  //Serial.println(accelData.accelX);
-  //Serial.print(F("Y axis: "));
-  //Serial.println(accelData.accelY);
-  //Serial.print(F("Z axis: "));
-  //Serial.println(accelData.accelZ);
-}
+//   //Serial.println(F("Gyroscope Data:"));
+//   //Serial.print(F("X axis: "));
+//   //Serial.println(gyroData.gyroX);
+//   //Serial.print(F("Y axis: "));
+//   //Serial.println(gyroData.gyroY);
+//   //Serial.print(F("Z axis: "));
+//   //Serial.println(gyroData.gyroZ);
+//   //Serial.println(F("Accelerometer Data:"));
+//   //Serial.print(F("X axis: "));
+//   //Serial.println(accelData.accelX);
+//   //Serial.print(F("Y axis: "));
+//   //Serial.println(accelData.accelY);
+//   //Serial.print(F("Z axis: "));
+//   //Serial.println(accelData.accelZ);
+// }
 
 bool initTof(uint8_t addr) {
   VL53L0X lox;
@@ -315,7 +315,7 @@ void setup() {
   //Serial.println(F("GSM Module setup completed!"));
 
   //Serial.println(F("Setting up MPU6500 Sensor..."));
-  setup_mpu6500();
+  //setup_mpu6500();
   //Serial.println(F("MPU6500 sensor setup completed!"));
 
   //Serial.println(F("Setting up ToF sensors..."));
@@ -329,7 +329,7 @@ void setup() {
 
 void loop() {
   getGpsData();
-  get_mpudata();
+  //get_mpudata();
   if (getRangingResults()) {
     moveVehicle();
   } else {

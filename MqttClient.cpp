@@ -78,7 +78,7 @@ void MqttClient::send_accel_data(float x, float y, float z) {
 
 void MqttClient::send_network_info() {
   char payload[200];
-  sprintf(payload, "{\"strength\":%d,\"operator\":%s}", -113 + (2 * modem->getSignalQuality()), modem->getOperator());
+  sprintf(payload, "{\"strength\":%d,\"operator\":\"%s\"}", -113 + (2 * modem->getSignalQuality()), modem->getOperator());
   mqtt->publish(TOPIC_INFO_NETWORK, payload);
 }
 

@@ -34,7 +34,7 @@ int indexOf(char * string,const __FlashStringHelper * search){
 
 int  indexOf(char * string,char * search,int offset){
 
-	//Serial.println("IndexOf offset->");
+	////Serial.println("IndexOf offset->");
 
 	//if (strlen(search) > offset)
 	//	return -1; //if the offset is greater than the string length,return -1 
@@ -84,7 +84,7 @@ Gpsneo::Gpsneo(uint8_t rx, uint8_t tx) : SoftwareSerial(rx,tx)
 }
 //---------------------------------------------------------------
 Gpsneo::~Gpsneo(void){
-	Serial.println("destructor");
+	//Serial.println("destructor");
 
 }
 
@@ -220,7 +220,7 @@ void Gpsneo::getDataGPRMC(char * latitude, char * longitude){
 
 void Gpsneo::getDataGPRMC(char *time,char * status,char * latitude,char *latitudHemisphere, char * longitude, char * longitudeMeridian,char * speedKnots,char * trackAngle,char * date,char * magneticVaration,char * magneticVarationOrientation){
 	#ifdef DEBUG
-		Serial.println(F("getDataGPRMC"));
+		//Serial.println(F("getDataGPRMC"));
 	#endif
 	char buffer[BUFFER_SIZE];
 	char * string;
@@ -228,7 +228,7 @@ void Gpsneo::getDataGPRMC(char *time,char * status,char * latitude,char *latitud
 
 	string=getDataRaw(F("GPRMC"),buffer);	
 	#ifdef DEBUG
-		Serial.println(string);
+		//Serial.println(string);
 	#endif
 	if (string!=NULL){
 		if (checksum(string)){
@@ -263,7 +263,7 @@ void Gpsneo::getDataGPRMC(char *time,char * status,char * latitude,char *latitud
 		speedKnots[0]=NULL;
 	}
 	#ifdef DEBUG
-		Serial.println(F("EndgetDataGPRMC"));
+		//Serial.println(F("EndgetDataGPRMC"));
 	#endif
 	return;
 
@@ -276,7 +276,7 @@ float Gpsneo::convertLatitude(char * latitude){
 	 hay que convertirlo en dd.dddd
 	*/
 	#ifdef DEBUG
-		Serial.println(F("convLat"));
+		//Serial.println(F("convLat"));
 	#endif
 	int dot = indexOf(latitude,F("."));	//busco la posicion del punto
 	if (dot!=-1){
@@ -287,12 +287,12 @@ float Gpsneo::convertLatitude(char * latitude){
 		substring(div,latitude,dot-4,2);
 		float  dd=atof(div);
 	#ifdef DEBUG
-		Serial.println(F("EndconvLat"));
+		//Serial.println(F("EndconvLat"));
 	#endif
     return dd + mm;
 	}
 	#ifdef DEBUG
-		Serial.println(F("EndconvLat"));
+		//Serial.println(F("EndconvLat"));
 	#endif
 	return -1;
 }
@@ -303,7 +303,7 @@ float Gpsneo::convertLongitude(char * longitude){
 	 hay que convertirlo en dd.dddd
 	*/
 	#ifdef DEBUG
-		Serial.println(F("convLon"));
+		//Serial.println(F("convLon"));
 	#endif
 	int dot = indexOf(longitude,F("."));	//busco la posicion del punto
 	if (dot!=-1){
@@ -314,29 +314,12 @@ float Gpsneo::convertLongitude(char * longitude){
 		substring(div,longitude,dot-5,3);
 		float  dd=atof(div);
 	#ifdef DEBUG
-		Serial.println(F("EndconvLon"));
+		//Serial.println(F("EndconvLon"));
 	#endif
 		return dd + mm;
 	}
 	#ifdef DEBUG
-		Serial.println(F("EndconvLon"));
+		//Serial.println(F("EndconvLon"));
 	#endif
 	return -1;
-}
-
-void Gpsneo::getDataGPGSA(){
-	//TODO
-	#ifdef GPGSA
-		char buffer[BUFFER_SIZE];
-		char * string;
-		string = &buffer[BUFFER_2];
-
-		string=getDataRaw(F("GPGSA"),buffer);
-
-		if (checksum(string)){
-			Serial.println(F("checksum OK---> "));
-		//	Serial.println(string);
-		}
-	#endif
-	return;
 }

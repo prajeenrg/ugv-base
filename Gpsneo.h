@@ -26,6 +26,5 @@
 		void getDataGPRMC(char * latitude,char * longitude);
 		float convertLongitude(char * longitude); //convierte los datos de lectura que vienen por defecto , a grados. 
 		float convertLatitude(char * latitude);
-		void getDataGPGSA();
 	};
 #endif 
