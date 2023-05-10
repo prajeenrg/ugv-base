@@ -75,29 +75,29 @@ MPU6500 mpu;
 void setup_gsm() {
   mqtt.setup_modem();
   while (!mqtt.connect_gprs(AIRTEL_APN, AIRTEL_USER, AIRTEL_PASS)) {
-    Serial.println(F("Failed initiating GPRS network"));
-    Serial.println(F("Retrying GPRS establishment after 1s..."));
+    //Serial.println(F("Failed initiating GPRS network"));
+    //Serial.println(F("Retrying GPRS establishment after 1s..."));
     delay(1000);
   }
-  Serial.print(F("Connected to GPRS: "));
-  Serial.println(AIRTEL_APN);
-  Serial.println(F("Connecting to MQTT Broker..."));
+  //Serial.print(F("Connected to GPRS: "));
+  //Serial.println(AIRTEL_APN);
+  //Serial.println(F("Connecting to MQTT Broker..."));
   mqtt.set_broker(BROKER_URL, BROKER_PORT);
   mqtt.connect_broker();
   while (!mqtt.connect_broker()) {
-    Serial.println(F("Failed in connecting to MQTT Broker"));
-    Serial.println(F("Retrying connection after 1s..."));
+    //Serial.println(F("Failed in connecting to MQTT Broker"));
+    //Serial.println(F("Retrying connection after 1s..."));
     delay(1000);
   }
-  Serial.println(F("Connected to MQTT Broker."));
+  //Serial.println(F("Connected to MQTT Broker."));
 }
 
 void setup_mpu6500() {
   calData calib = { 0 };
   int err = mpu.init(calib, MPU_ADDR);
   if (err != 0) {
-    Serial.print(F("Error initializing MPU6500, error code: "));
-    Serial.println(err);
+    //Serial.print(F("Error initializing MPU6500, error code: "));
+    //Serial.println(err);
     while (1);
   }
 }
@@ -108,10 +108,10 @@ void getGpsData() {
   float glati = gps.convertLatitude(glat);
   float glongi = gps.convertLongitude(glong);
   mqtt.send_gps_data(glati, glongi);
-  Serial.print(F("Latitude: "));
-  Serial.print(glati);
-  Serial.print(F(", Longitude: "));
-  Serial.println(glongi);
+  //Serial.print(F("Latitude: "));
+  //Serial.print(glati);
+  //Serial.print(F(", Longitude: "));
+  //Serial.println(glongi);
 }
 
 void applyMotorDrive(char fwl, char fwr, char rev = 0) {
@@ -176,11 +176,11 @@ void moveVehicle() {
   applyMotorDrive(left, right, mode);
   mqtt.send_motor_data(left, right);
 
-  Serial.println(F("Motor Data:"));
-  Serial.print(F("Left Speed: ")); 
-  Serial.println(left);
-  Serial.print(F("Right Speed: ")); 
-  Serial.println(right);
+  //Serial.println(F("Motor Data:"));
+  //Serial.print(F("Left Speed: ")); 
+  //Serial.println(left);
+  //Serial.print(F("Right Speed: ")); 
+  //Serial.println(right);
 }
 
 void get_mpudata() {
@@ -192,27 +192,27 @@ void get_mpudata() {
   mqtt.send_gyro_data(gyroData.gyroX, gyroData.gyroY, gyroData.gyroZ);
   mqtt.send_accel_data(accelData.accelX, accelData.accelY, accelData.accelZ);
 
-  Serial.println(F("Gyroscope Data:"));
-  Serial.print(F("X axis: "));
-  Serial.println(gyroData.gyroX);
-  Serial.print(F("Y axis: "));
-  Serial.println(gyroData.gyroY);
-  Serial.print(F("Z axis: "));
-  Serial.println(gyroData.gyroZ);
-  Serial.println(F("Accelerometer Data:"));
-  Serial.print(F("X axis: "));
-  Serial.println(accelData.accelX);
-  Serial.print(F("Y axis: "));
-  Serial.println(accelData.accelY);
-  Serial.print(F("Z axis: "));
-  Serial.println(accelData.accelZ);
+  //Serial.println(F("Gyroscope Data:"));
+  //Serial.print(F("X axis: "));
+  //Serial.println(gyroData.gyroX);
+  //Serial.print(F("Y axis: "));
+  //Serial.println(gyroData.gyroY);
+  //Serial.print(F("Z axis: "));
+  //Serial.println(gyroData.gyroZ);
+  //Serial.println(F("Accelerometer Data:"));
+  //Serial.print(F("X axis: "));
+  //Serial.println(accelData.accelX);
+  //Serial.print(F("Y axis: "));
+  //Serial.println(accelData.accelY);
+  //Serial.print(F("Z axis: "));
+  //Serial.println(accelData.accelZ);
 }
 
 bool initTof(uint8_t addr) {
   VL53L0X lox;
   lox.setAddress(addr);
   if (!lox.init()) {
-    Serial.println(F("LTOF cannot be found"));
+    //Serial.println(F("LTOF cannot be found"));
     return false;
   }
   lox.startContinuous();
@@ -224,29 +224,29 @@ bool setTofAddress() {
   digitalWrite(XSHUT_1, LOW);
   digitalWrite(XSHUT_3, LOW);
   if (!initTof(TOF_ADDR_4)) {
-    Serial.println(F("LTOF cannot be found"));
+    //Serial.println(F("LTOF cannot be found"));
     return true;
   }
 
   digitalWrite(XSHUT_2, HIGH);
   if (!initTof(TOF_ADDR_2)) {
-    Serial.println(F("RTOF cannot be found"));
+    //Serial.println(F("RTOF cannot be found"));
     return true;
   }
 
   digitalWrite(XSHUT_1, HIGH);
   if (!initTof(TOF_ADDR_1)) {
-    Serial.println(F("FTOF cannot be found"));
+    //Serial.println(F("FTOF cannot be found"));
     return true;
   }
   
   digitalWrite(XSHUT_3, HIGH);
   if (!initTof(TOF_ADDR_3)) {
-    Serial.println(F("BTOF cannot be found"));
+    //Serial.println(F("BTOF cannot be found"));
     return true;
   }
 
-  Serial.println(F("All TOFs ready for launch"));
+  //Serial.println(F("All TOFs ready for launch"));
   return false;
 }
 
@@ -278,15 +278,15 @@ bool getRangingResults() {
 
   mqtt.send_lidar_data(front, right, back, left);
 
-  Serial.println(F("TOF Ranging Results:"));
-  Serial.print(F("TOF 1: "));
-  Serial.println(front);
-  Serial.print(F("TOF 2: ")); 
-  Serial.println(right);
-  Serial.print(F("TOF 3: ")); 
-  Serial.println(back);
-  Serial.print(F("TOF 4: ")); 
-  Serial.println(left);
+  //Serial.println(F("TOF Ranging Results:"));
+  //Serial.print(F("TOF 1: "));
+  //Serial.println(front);
+  //Serial.print(F("TOF 2: ")); 
+  //Serial.println(right);
+  //Serial.print(F("TOF 3: ")); 
+  //Serial.println(back);
+  //Serial.print(F("TOF 4: ")); 
+  //Serial.println(left);
 
   return LESS_THAN(front, SAFE_DISTANCE_MM) ||
     LESS_THAN(back, SAFE_DISTANCE_MM) ||
@@ -296,9 +296,9 @@ bool getRangingResults() {
 
 void setup() {
   Serial.begin(115200);
-  Serial.println(F("Initializing the pins and peripherals..."));
+  //Serial.println(F("Initializing the pins and peripherals..."));
 
-  Serial.println(F("Setting pin modes..."));
+  //Serial.println(F("Setting pin modes..."));
   pinMode(MOTOR_AB1, OUTPUT);
   pinMode(MOTOR_AB2, OUTPUT);
   pinMode(MOTOR_CD1, OUTPUT);
@@ -307,24 +307,24 @@ void setup() {
   pinMode(XSHUT_1, OUTPUT);
   pinMode(XSHUT_3, OUTPUT);
   pinMode(XSHUT_2, OUTPUT);
-  Serial.println(F("Pins modes has been set!"));
+  //Serial.println(F("Pins modes has been set!"));
 
-  Serial.println(F("Setting up GSM Module..."));
+  //Serial.println(F("Setting up GSM Module..."));
   GSM.begin(9600);
   setup_gsm();
-  Serial.println(F("GSM Module setup completed!"));
+  //Serial.println(F("GSM Module setup completed!"));
 
-  Serial.println(F("Setting up MPU6500 Sensor..."));
+  //Serial.println(F("Setting up MPU6500 Sensor..."));
   setup_mpu6500();
-  Serial.println(F("MPU6500 sensor setup completed!"));
+  //Serial.println(F("MPU6500 sensor setup completed!"));
 
-  Serial.println(F("Setting up ToF sensors..."));
+  //Serial.println(F("Setting up ToF sensors..."));
   do {
    resetTof();
   } while (setTofAddress());
-  Serial.println(F("ToF sensors setup completed!"));
+  //Serial.println(F("ToF sensors setup completed!"));
 
-  Serial.println(F("Initialization successfully completed!!!"));
+  //Serial.println(F("Initialization successfully completed!!!"));
 }
 
 void loop() {
@@ -333,7 +333,7 @@ void loop() {
   if (getRangingResults()) {
     moveVehicle();
   } else {
-    Serial.println(F("There is a block"));
+    //Serial.println(F("There is a block"));
   }
   mqtt.loop();
 }

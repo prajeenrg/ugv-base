@@ -9,18 +9,18 @@ MqttClient::MqttClient(SoftwareSerial &serial) {
 }
 
 void MqttClient::setup_modem() {
-  Serial.println(F("GSM System Booting..."));
+  //Serial.println(F("GSM System Booting..."));
   modem->restart();
-  Serial.print(F("Modem Info: "));
-  Serial.println(modem->getModemInfo());
-  Serial.println(F("Searching for Telco Provider..."));
+  //Serial.print(F("Modem Info: "));
+  //Serial.println(modem->getModemInfo());
+  //Serial.println(F("Searching for Telco Provider..."));
   if (!modem->waitForNetwork()) {
-    Serial.println(F("Telco Provider connection failed."));
+    //Serial.println(F("Telco Provider connection failed."));
     while (1);
   }
-  Serial.println(F("Connected to Telco provider."));
-  Serial.println(F("Signal Quality: "));
-  Serial.println(modem->getSignalQuality());
+  //Serial.println(F("Connected to Telco provider."));
+  //Serial.println(F("Signal Quality: "));
+  //Serial.println(modem->getSignalQuality());
 }
 
 bool MqttClient::connect_gprs(const char *apn, const char *user, const char *pass) {
