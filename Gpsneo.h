@@ -1,6 +1,6 @@
 #ifndef Gpsneo_h
 	#define Gpsneo_h
-	#include "HardwareSerial.h"
+  #include<SoftwareSerial.h>
 	//  UNCOMMENT WHAT YOU ARE GOING TO USE
 	//#define GPGSA
 
@@ -12,7 +12,7 @@
 	#define BUFFER_2 500
 	//#define DEBUG
 
-	class Gpsneo : public HardwareSerial
+	class Gpsneo : public SoftwareSerial
 	{
 		void init (int baudrate);
 		bool checksum(char * string);
@@ -20,9 +20,7 @@
 		char * getDataRaw(const __FlashStringHelper * look,char * buffer);
 
 	public:
-		Gpsneo(void);
 		Gpsneo(uint8_t rx,uint8_t tx);
-		Gpsneo(uint8_t rx,uint8_t tx, long baudrate);
 		~Gpsneo(void);
 		void getDataGPRMC(char *time,char * status,char * latitude,char *latitudHemisphere, char * longitude, char * longitudeMeridian,char * speedKnots,char * trackAngle,char * date,char * magneticVaration, char * magneticVarationOrientation);
 		void getDataGPRMC(char * latitude,char * longitude);

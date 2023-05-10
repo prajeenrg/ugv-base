@@ -1,6 +1,6 @@
 #define TINY_GSM_MODEM_SIM800
 
-#include <HardwareSerial.h>
+#include <SoftwareSerial.h>
 #include <TinyGsmClient.h>
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
@@ -28,7 +28,7 @@ class MqttClient {
   public:
   static uint8_t control;
 
-  MqttClient(HardwareSerial&);
+  MqttClient(SoftwareSerial&);
   ~MqttClient();
   bool connect_broker();
   bool connect_gprs(const char*, const char*, const char*);

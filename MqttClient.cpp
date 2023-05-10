@@ -2,23 +2,25 @@
 
 uint8_t MqttClient::control = 5; // default enum value for stop in Dir Enum
 
-MqttClient::MqttClient(HardwareSerial &serial) {
+MqttClient::MqttClient(SoftwareSerial &serial) {
     modem = new TinyGsm(serial);
     client = new TinyGsmClient(*modem);
     mqtt = new PubSubClient(*client);
 }
 
 void MqttClient::setup_modem() {
-  Serial.println("GSM System Booting...");
+  Serial.println(F("GSM System Booting..."));
   modem->restart();
-  Serial.println("Modem Info: " + modem->getModemInfo());
-  Serial.println("Searching for Telco Provider...");
+  Serial.print(F("Modem Info: "));
+  Serial.println(modem->getModemInfo());
+  Serial.println(F("Searching for Telco Provider..."));
   if (!modem->waitForNetwork()) {
-    Serial.println("Telco Provider connection failed.");
+    Serial.println(F("Telco Provider connection failed."));
     while (1);
   }
-  Serial.println("Connected to Telco provider.");
-  Serial.println("Signal Quality: " + String(modem->getSignalQuality()));
+  Serial.println(F("Connected to Telco provider."));
+  Serial.println(F("Signal Quality: "));
+  Serial.println(modem->getSignalQuality());
 }
 
 bool MqttClient::connect_gprs(const char *apn, const char *user, const char *pass) {

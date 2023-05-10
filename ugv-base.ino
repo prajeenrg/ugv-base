@@ -10,24 +10,24 @@
 #define SAFE_DISTANCE_MM 40
 
 /* motor controls pins */
-#define MOTOR_AB1 PB12
-#define MOTOR_AB2 PB13
-#define MOTOR_CD1 PB15
-#define MOTOR_CD2 PB14
+#define MOTOR_AB1 11
+#define MOTOR_AB2 10
+#define MOTOR_CD1 9
+#define MOTOR_CD2 6
 
 /* lidar xshut pins */
-#define XSHUT_1 PA5
-#define XSHUT_2 PA6
-#define XSHUT_3 PA4
-#define XSHUT_4 PA7
+#define XSHUT_1 A0
+#define XSHUT_2 A1
+#define XSHUT_3 A2
+#define XSHUT_4 A3
 
 /* gsm uart pins */
-#define GSM_TX PA3
-#define GSM_RX PA2
+#define GSM_TX 2
+#define GSM_RX 3
 
 /* gps uart pins */
-#define GPS_TX PA10
-#define GPS_RX PA9
+#define GPS_TX 12
+#define GPS_RX 13
 
 /* tof address setting */
 #define TOF_ADDR_1 0x62
@@ -53,12 +53,6 @@
 #define SPEED4 90
 #define SPEED5 0
 
-LidarData lidardata;
-GpsData gpsdata;
-MotorData motordata;
-AccelData accelData;
-GyroData gyroData;
-
 /* direction settings */
 enum Dir { 
   NWD = 1,
@@ -75,8 +69,7 @@ enum Dir {
 };
 
 Gpsneo gps(GPS_TX, GPS_RX);
-Adafruit_VL53L0X lox;
-HardwareSerial GSM(GSM_TX, GSM_RX);
+SoftwareSerial GSM(GSM_TX, GSM_RX);
 MqttClient mqtt(GSM);
 MPU6500 mpu;
 
@@ -87,7 +80,8 @@ void setup_gsm() {
     Serial.println(F("Retrying GPRS establishment after 1s..."));
     delay(1000);
   }
-  Serial.println("Connected to GPRS: " + String(AIRTEL_APN));
+  Serial.print(F("Connected to GPRS: "));
+  Serial.println(AIRTEL_APN);
   Serial.println(F("Connecting to MQTT Broker..."));
   mqtt.set_broker(BROKER_URL, BROKER_PORT);
   mqtt.connect_broker();
@@ -112,10 +106,14 @@ void setup_mpu6500() {
 void getGpsData() {
   char glat[50], glong[50];
   gps.getDataGPRMC(glat, glong);
+  GpsData gpsdata;
   gpsdata.latitude = gps.convertLatitude(glat);
   gpsdata.longitude = gps.convertLongitude(glong);
   mqtt.send_gps_data(gpsdata);  
-  Serial.printf("Latitude: %f, Longitude: %f\n", gpsdata.latitude, gpsdata.longitude);
+  Serial.print(F("Latitude: "));
+  Serial.print(glat);
+  Serial.print(F(", Longitude: "));
+  Serial.println(glong);
 }
 
 void applyMotorDrive(char fwl, char fwr, char rev = 0) {
@@ -136,6 +134,7 @@ void applyMotorDrive(char fwl, char fwr, char rev = 0) {
 }
 
 void moveVehicle() {
+  MotorData motordata;
   int mode = 0;
   motordata.left = SPEED1;
   motordata.right = SPEED2;
@@ -181,11 +180,15 @@ void moveVehicle() {
   mqtt.send_motor_data(motordata);
 
   Serial.println(F("Motor Data:"));
-  Serial.printf("Left Speed: %d\n", motordata.left);
-  Serial.printf("Right Speed: %d\n", motordata.right);  
+  Serial.print(F("Left Speed: ")); 
+  Serial.println(motordata.left);
+  Serial.print(F("Right Speed: ")); 
+  Serial.println(motordata.right);  
 }
 
 void get_mpudata() {
+  GyroData gyroData;
+  AccelData accelData;
   mpu.update();
   mpu.getAccel(&accelData);
   mpu.getGyro(&gyroData);
@@ -193,16 +196,23 @@ void get_mpudata() {
   mqtt.send_accel_data(accelData);
 
   Serial.println(F("Gyroscope Data:"));
-  Serial.printf("X axis: %f\n", gyroData.gyroX);
-  Serial.printf("Y axis: %f\n", gyroData.gyroY);
-  Serial.printf("Z axis: %f\n", gyroData.gyroZ);
+  Serial.print(F("X axis: "));
+  Serial.println(gyroData.gyroX);
+  Serial.print(F("Y axis: "));
+  Serial.println(gyroData.gyroY);
+  Serial.print(F("Z axis: "));
+  Serial.println(gyroData.gyroZ);
   Serial.println(F("Accelerometer Data:"));
-  Serial.printf("X axis: %f\n", accelData.accelX);
-  Serial.printf("Y axis: %f\n", accelData.accelY);
-  Serial.printf("Z axis: %f\n", accelData.accelZ);
+  Serial.print(F("X axis: "));
+  Serial.println(accelData.accelX);
+  Serial.print(F("Y axis: "));
+  Serial.println(accelData.accelY);
+  Serial.print(F("Z axis: "));
+  Serial.println(accelData.accelZ);
 }
 
 bool setTofAddress() {
+  Adafruit_VL53L0X lox;
   digitalWrite(XSHUT_2, LOW);
   digitalWrite(XSHUT_1, LOW);
   digitalWrite(XSHUT_3, LOW);
@@ -254,7 +264,9 @@ inline void resetTof() {
   delay(10);
 }
 
-void getRangingResults() {
+bool getRangingResults() {
+  Adafruit_VL53L0X lox;
+  LidarData lidardata;
   lox.begin(TOF_ADDR_4, false);
   lidardata.left = lox.readRange();
 
@@ -270,13 +282,15 @@ void getRangingResults() {
   mqtt.send_lidar_data(lidardata);
 
   Serial.println(F("TOF Ranging Results:"));
-  Serial.printf("TOF 1: %d\n", lidardata.front);
-  Serial.printf("TOF 2: %d\n", lidardata.right);
-  Serial.printf("TOF 3: %d\n", lidardata.back);
-  Serial.printf("TOF 4: %d\n", lidardata.left);
-}
+  Serial.print(F("TOF 1: "));
+  Serial.println(lidardata.front);
+  Serial.print(F("TOF 2: ")); 
+  Serial.println(lidardata.right);
+  Serial.print(F("TOF 3: ")); 
+  Serial.println(lidardata.back);
+  Serial.print(F("TOF 4: ")); 
+  Serial.println(lidardata.left);
 
-bool checkObstacle() {
   return LESS_THAN(lidardata.front, SAFE_DISTANCE_MM) ||
     LESS_THAN(lidardata.back, SAFE_DISTANCE_MM) ||
     LESS_THAN(lidardata.left, SAFE_DISTANCE_MM) ||
@@ -298,7 +312,7 @@ void setup() {
   pinMode(XSHUT_2, OUTPUT);
   Serial.println(F("Pins modes has been set!"));
 
-  Serial.println("Setting up GSM Module...");
+  Serial.println(F("Setting up GSM Module..."));
   GSM.begin(9600);
   setup_gsm();
   Serial.println(F("GSM Module setup completed!"));
@@ -319,8 +333,7 @@ void setup() {
 void loop() {
   getGpsData();
   get_mpudata();
-  getRangingResults();
-  if (checkObstacle()) {
+  if (getRangingResults()) {
     moveVehicle();
   } else {
     Serial.println(F("There is a block"));
