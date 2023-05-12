@@ -12,8 +12,8 @@
 /* motor controls pins */
 #define MOTOR_AB1 PB12
 #define MOTOR_AB2 PB13
-#define MOTOR_CD1 PB15
-#define MOTOR_CD2 PB14
+#define MOTOR_CD1 PB14
+#define MOTOR_CD2 PB15
 
 /* lidar xshut pins */
 #define XSHUT_1 PA5
