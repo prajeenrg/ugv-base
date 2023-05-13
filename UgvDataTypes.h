@@ -18,4 +18,9 @@ struct LidarData {
   uint16_t right;
 };
 
+struct DhtData {
+  double temp;
+  double humid;
+};
+
 #endif

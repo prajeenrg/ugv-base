@@ -1,11 +1,11 @@
 #include "MqttClient.h"
 
-uint8_t MqttClient::control = 5; // default enum value for stop in Dir Enum
+uint8_t MqttClient::control = 5;  // default enum value for stop in Dir Enum
 
 MqttClient::MqttClient(HardwareSerial &serial) {
-    modem = new TinyGsm(serial);
-    client = new TinyGsmClient(*modem);
-    mqtt = new PubSubClient(*client);
+  modem = new TinyGsm(serial);
+  client = new TinyGsmClient(*modem);
+  mqtt = new PubSubClient(*client);
 }
 
 void MqttClient::setup_modem() {
@@ -15,7 +15,8 @@ void MqttClient::setup_modem() {
   Serial.println("Searching for Telco Provider...");
   if (!modem->waitForNetwork()) {
     Serial.println("Telco Provider connection failed.");
-    while (1);
+    while (1)
+      ;
   }
   Serial.println("Connected to Telco provider.");
   Serial.println("Signal Quality: " + String(modem->getSignalQuality()));
@@ -35,12 +36,12 @@ bool MqttClient::connect_broker() {
     return false;
   }
   mqtt->subscribe(TOPIC_CONTROL);
-  mqtt->publish(TOPIC_CONNECTED,"true");
+  mqtt->publish(TOPIC_CONNECTED, "true");
   send_network_info();
   return mqtt->connected();
 }
 
-void MqttClient::mqtt_callback(char* topic, byte* payload, unsigned int len) {
+void MqttClient::mqtt_callback(char *topic, byte *payload, unsigned int len) {
   if (strcmp(topic, TOPIC_CONTROL)) {
     return;
   }
@@ -99,6 +100,15 @@ void MqttClient::send_accel_data(AccelData &data) {
   char payload[97];
   serializeJson(doc, payload);
   mqtt->publish(TOPIC_INFO_ACCEL, payload);
+}
+
+void MqttClient::send_dht_data(DhtData &data) {
+  StaticJsonDocument<100> doc;
+  doc["temperature"] = data.temp;
+  doc["humidity"] = data.humid;
+  char payload[100];
+  serializeJson(doc, payload);
+  mqtt->publish(TOPIC_INFO_DHT, payload);
 }
 
 void MqttClient::send_network_info() {

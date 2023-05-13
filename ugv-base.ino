@@ -1,13 +1,18 @@
 #include <Wire.h>
 #include "Adafruit_VL53L0X.h"
+#include "dht11.h"
+#include "FastIMU.h"
 #include "Gpsneo.h"
 #include "MqttClient.h"
-#include "FastIMU.h"
 #include "UgvDataTypes.h"
 
 #define LESS_THAN(x, y) x < y
 
 #define SAFE_DISTANCE_MM 40
+
+/* aux pins */
+#define DHT_IO PB5
+#define IND_PIN PB9
 
 /* motor controls pins */
 #define MOTOR_AB1 PB12
@@ -53,14 +58,16 @@
 #define SPEED4 90
 #define SPEED5 0
 
+/* Global Data Carrying Variables */
+AccelData accelData;
+DhtData dhtData;
 LidarData lidardata;
 GpsData gpsdata;
-MotorData motordata;
-AccelData accelData;
 GyroData gyroData;
+MotorData motordata;
 
 /* direction settings */
-enum Dir { 
+enum Dir {
   NWD = 1,
   ND,
   NED,
@@ -79,6 +86,7 @@ Adafruit_VL53L0X lox;
 HardwareSerial GSM(GSM_TX, GSM_RX);
 MqttClient mqtt(GSM);
 MPU6500 mpu;
+DHT11 dht;
 
 void setup_gsm() {
   mqtt.setup_modem();
@@ -105,7 +113,8 @@ void setup_mpu6500() {
   if (err != 0) {
     Serial.print(F("Error initializing MPU6500, error code: "));
     Serial.println(err);
-    while (1);
+    while (1)
+      ;
   }
 }
 
@@ -114,11 +123,12 @@ void getGpsData() {
   gps.getDataGPRMC(glat, glong);
   gpsdata.latitude = gps.convertLatitude(glat);
   gpsdata.longitude = gps.convertLongitude(glong);
-  mqtt.send_gps_data(gpsdata);  
+  mqtt.send_gps_data(gpsdata);
   Serial.printf("Latitude: %f, Longitude: %f\n", gpsdata.latitude, gpsdata.longitude);
 }
 
 void applyMotorDrive(char fwl, char fwr, char rev = 0) {
+  // when rev = 000000XY --> X= & Y decides if left & right wheels spin backwards
   if ((rev & 2) >> 1) {
     digitalWrite(MOTOR_AB1, LOW);
     analogWrite(MOTOR_AB2, fwl);
@@ -182,7 +192,29 @@ void moveVehicle() {
 
   Serial.println(F("Motor Data:"));
   Serial.printf("Left Speed: %d\n", motordata.left);
-  Serial.printf("Right Speed: %d\n", motordata.right);  
+  Serial.printf("Right Speed: %d\n", motordata.right);
+}
+
+void get_dhtdata() {
+  Serial.print("DHT Fetch Status: ");
+  int chk = dht.read(DHT_IO);
+  switch (chk) {
+    case DHTLIB_OK:
+      Serial.println("OK");
+      dhtData.temp = dht.temperature;
+      dhtData.humid = dht.humidity;
+      mqtt.send_dht_data(dhtData);
+      break;
+    case DHTLIB_ERROR_CHECKSUM:
+      Serial.println("Checksum error");
+      break;
+    case DHTLIB_ERROR_TIMEOUT:
+      Serial.println("Time out error");
+      break;
+    default:
+      Serial.println("Unknown error");
+      break;
+  }
 }
 
 void get_mpudata() {
@@ -228,7 +260,7 @@ bool setTofAddress() {
   } else {
     lox.startRangeContinuous();
   }
-  
+
   digitalWrite(XSHUT_3, HIGH);
   if (!lox.begin(TOF_ADDR_3, false)) {
     Serial.println(F("BTOF cannot be found"));
@@ -277,10 +309,7 @@ void getRangingResults() {
 }
 
 bool checkObstacle() {
-  return LESS_THAN(lidardata.front, SAFE_DISTANCE_MM) ||
-    LESS_THAN(lidardata.back, SAFE_DISTANCE_MM) ||
-    LESS_THAN(lidardata.left, SAFE_DISTANCE_MM) ||
-    LESS_THAN(lidardata.right, SAFE_DISTANCE_MM);
+  return LESS_THAN(lidardata.front, SAFE_DISTANCE_MM) || LESS_THAN(lidardata.back, SAFE_DISTANCE_MM) || LESS_THAN(lidardata.left, SAFE_DISTANCE_MM) || LESS_THAN(lidardata.right, SAFE_DISTANCE_MM);
 }
 
 void setup() {
@@ -309,7 +338,7 @@ void setup() {
 
   Serial.println(F("Setting up ToF sensors..."));
   do {
-   resetTof();
+    resetTof();
   } while (setTofAddress());
   Serial.println(F("ToF sensors setup completed!"));
 
