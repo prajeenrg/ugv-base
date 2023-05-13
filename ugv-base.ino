@@ -116,6 +116,9 @@ void setup_mpu6500() {
     while (1)
       ;
   }
+  // perform calibration for better results
+  mpu.calibrateAccelGyro(&calib);
+  mpu.init(calib, MPU_ADDR);
 }
 
 void getGpsData() {
@@ -347,6 +350,7 @@ void setup() {
 
 void loop() {
   getGpsData();
+  get_dhtdata();
   get_mpudata();
   getRangingResults();
   if (checkObstacle()) {
