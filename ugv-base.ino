@@ -9,6 +9,7 @@
 #define LESS_THAN(x, y) x < y
 
 #define SAFE_DISTANCE_MM 40
+#define BLINK_DURATION 200
 
 /* aux pins */
 #define DHT_IO PB5
@@ -51,13 +52,6 @@
 
 #define MPU_ADDR 0x68  // i2c address for mpu6500
 
-/* motor speed settings */
-#define SPEED1 240
-#define SPEED2 180
-#define SPEED3 120
-#define SPEED4 90
-#define SPEED5 0
-
 /* Global Data Carrying Variables */
 AccelData accelData;
 DhtData dhtData;
@@ -86,7 +80,7 @@ Adafruit_VL53L0X lox;
 HardwareSerial GSM(GSM_TX, GSM_RX);
 MqttClient mqtt(GSM);
 MPU6500 mpu;
-DHT11 dht;
+dht11 dht;
 
 void setup_gsm() {
   mqtt.setup_modem();
@@ -130,67 +124,21 @@ void getGpsData() {
   Serial.printf("Latitude: %f, Longitude: %f\n", gpsdata.latitude, gpsdata.longitude);
 }
 
-void applyMotorDrive(char fwl, char fwr, char rev = 0) {
-  // when rev = 000000XY --> X= & Y decides if left & right wheels spin backwards
-  if ((rev & 2) >> 1) {
-    digitalWrite(MOTOR_AB1, LOW);
-    analogWrite(MOTOR_AB2, fwl);
-  } else {
-    analogWrite(MOTOR_AB1, fwl);
-    digitalWrite(MOTOR_AB2, LOW);
-  }
-  if (rev & 1) {
-    digitalWrite(MOTOR_CD1, LOW);
-    analogWrite(MOTOR_CD2, fwr);
-  } else {
-    analogWrite(MOTOR_CD1, fwr);
-    digitalWrite(MOTOR_CD2, LOW);
-  }
-}
-
 void moveVehicle() {
   int mode = 0;
-  motordata.left = SPEED1;
-  motordata.right = SPEED2;
-  switch (MqttClient::control) {
-    case Dir::ND:
-      break;
-    case Dir::ED:
-      motordata.right = SPEED3;
-      break;
-    case Dir::WD:
-      motordata.left = SPEED3;
-      break;
-    case Dir::NED:
-      motordata.right = SPEED2;
-      break;
-    case Dir::NWD:
-      motordata.left = SPEED2;
-      break;
-    case Dir::SD:
-      mode = 3;
-      break;
-    case Dir::SWD:
-      mode = 3;
-      motordata.left = SPEED2;
-      break;
-    case Dir::SED:
-      mode = 3;
-      motordata.right = SPEED2;
-      break;
-    case Dir::ROTC:
-      mode = 1;
-      break;
-    case Dir::ROTCC:
-      mode = 2;
-      break;
-    case Dir::STOP:
-    default:
-      motordata.left = SPEED5;
-      motordata.right = SPEED5;
-      break;
+  motordata.left = MqttClient::control.left;
+  motordata.right = MqttClient::control.right;
+  if (MqttClient::control.rev) {
+    analogWrite(MOTOR_AB1, LOW);
+    analogWrite(MOTOR_AB2, motordata.left);
+    analogWrite(MOTOR_CD1, LOW);
+    analogWrite(MOTOR_CD2, motordata.right);
+  } else {
+    analogWrite(MOTOR_AB1, motordata.left);
+    analogWrite(MOTOR_AB2, LOW);
+    analogWrite(MOTOR_CD1, motordata.right);
+    analogWrite(MOTOR_CD2, LOW);
   }
-  applyMotorDrive(motordata.left, motordata.right, mode);
   mqtt.send_motor_data(motordata);
 
   Serial.println(F("Motor Data:"));
@@ -315,6 +263,12 @@ bool checkObstacle() {
   return LESS_THAN(lidardata.front, SAFE_DISTANCE_MM) || LESS_THAN(lidardata.back, SAFE_DISTANCE_MM) || LESS_THAN(lidardata.left, SAFE_DISTANCE_MM) || LESS_THAN(lidardata.right, SAFE_DISTANCE_MM);
 }
 
+inline void blinkLed() {
+  digitalWrite(IND_PIN, HIGH);
+  delay(BLINK_DURATION);
+  digitalWrite(IND_PIN, LOW);
+}
+
 void setup() {
   Serial.begin(115200);
   Serial.println(F("Initializing the pins and peripherals..."));
@@ -328,24 +282,30 @@ void setup() {
   pinMode(XSHUT_1, OUTPUT);
   pinMode(XSHUT_3, OUTPUT);
   pinMode(XSHUT_2, OUTPUT);
+  pinMode(IND_PIN, OUTPUT);
+  blinkLed();
   Serial.println(F("Pins modes has been set!"));
 
   Serial.println("Setting up GSM Module...");
   GSM.begin(9600);
   setup_gsm();
+  blinkLed();
   Serial.println(F("GSM Module setup completed!"));
 
   Serial.println(F("Setting up MPU6500 Sensor..."));
   setup_mpu6500();
+  blinkLed();
   Serial.println(F("MPU6500 sensor setup completed!"));
 
   Serial.println(F("Setting up ToF sensors..."));
   do {
     resetTof();
   } while (setTofAddress());
+  blinkLed();
   Serial.println(F("ToF sensors setup completed!"));
 
   Serial.println(F("Initialization successfully completed!!!"));
+  digitalWrite(IND_PIN, HIGH);
 }
 
 void loop() {

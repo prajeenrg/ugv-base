@@ -27,7 +27,7 @@ class MqttClient {
   PubSubClient *mqtt;
 
 public:
-  static uint8_t control;
+  static Control control;
 
   MqttClient(HardwareSerial &);
   ~MqttClient();
@@ -44,5 +44,4 @@ public:
   void send_motor_data(MotorData &);
   void send_network_info();
   static void mqtt_callback(char *, byte *, unsigned int);
-  uint8_t get_control();
 };

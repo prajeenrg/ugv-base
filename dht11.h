@@ -24,7 +24,7 @@
 // so by dividing F_CPU by 40000 we "fail" as fast as possible
 #define DHTLIB_TIMEOUT (F_CPU/40000)
 
-class DHT11 {
+class dht11 {
 public:
     int read(uint8_t pin);
 

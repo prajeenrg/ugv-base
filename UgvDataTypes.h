@@ -23,4 +23,10 @@ struct DhtData {
   double humid;
 };
 
+struct Control {
+  uint8_t left;
+  uint8_t right;
+  bool rev;
+};
+
 #endif

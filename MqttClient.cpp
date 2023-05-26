@@ -1,6 +1,6 @@
 #include "MqttClient.h"
 
-uint8_t MqttClient::control = 5;  // default enum value for stop in Dir Enum
+Control MqttClient::control = {0, 0, 0};
 
 MqttClient::MqttClient(HardwareSerial &serial) {
   modem = new TinyGsm(serial);
@@ -45,12 +45,14 @@ void MqttClient::mqtt_callback(char *topic, byte *payload, unsigned int len) {
   if (strcmp(topic, TOPIC_CONTROL)) {
     return;
   }
-  StaticJsonDocument<100> doc;
+  StaticJsonDocument<200> doc;
   DeserializationError error = deserializeJson(doc, payload);
   if (error) {
     return;
   }
-  MqttClient::control = doc["id"];
+  MqttClient::control.left = doc["left"];
+  MqttClient::control.right = doc["right"];
+  MqttClient::control.rev = doc["rev"];
 }
 
 void MqttClient::send_gps_data(GpsData &data) {

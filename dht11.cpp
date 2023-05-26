@@ -1,6 +1,6 @@
 #include "dht11.h"
 
-int DHT11::read(uint8_t pin) {
+int dht11::read(uint8_t pin) {
   // READ VALUES
   int rv = _readSensor(pin, DHTLIB_DHT11_WAKEUP);
   if (rv != DHTLIB_OK) {
@@ -21,7 +21,7 @@ int DHT11::read(uint8_t pin) {
   return DHTLIB_OK;
 }
 
-int DHT11::_readSensor(uint8_t pin, uint8_t wakeupDelay) {
+int dht11::_readSensor(uint8_t pin, uint8_t wakeupDelay) {
   // INIT BUFFERVAR TO RECEIVE DATA
   uint8_t mask = 128;
   uint8_t idx = 0;
