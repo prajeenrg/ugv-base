@@ -6,14 +6,14 @@
 #include "MqttClient.h"
 #include "UgvDataTypes.h"
 
-#define LESS_THAN(x, y) x < y
+#define GREATER_THAN(x, y) x > y
 
-#define SAFE_DISTANCE_MM 40
+#define SAFE_DISTANCE_MM 50
 #define BLINK_DURATION 200
 
 /* aux pins */
 #define DHT_IO PB5
-#define IND_PIN PB9
+#define IND_PIN PC13
 
 /* motor controls pins */
 #define MOTOR_AB1 PB12
@@ -52,52 +52,51 @@
 
 #define MPU_ADDR 0x68  // i2c address for mpu6500
 
+bool status_led[] = {true, false, false, false, false, false};
+uint8_t sled_i = 0;  // indicates which status to check
+bool update_idx = false; // indicates whether to move to next status
+
 /* Global Data Carrying Variables */
 AccelData accelData;
 DhtData dhtData;
 LidarData lidardata;
 GpsData gpsdata;
 GyroData gyroData;
-MotorData motordata;
-
-/* direction settings */
-enum Dir {
-  NWD = 1,
-  ND,
-  NED,
-  WD,
-  STOP,
-  ED,
-  SWD,
-  SD,
-  SED,
-  ROTC,
-  ROTCC,
-};
 
 Gpsneo gps(GPS_TX, GPS_RX);
 Adafruit_VL53L0X lox;
 HardwareSerial GSM(GSM_TX, GSM_RX);
-MqttClient mqtt(GSM);
 MPU6500 mpu;
 dht11 dht;
 
+void status_led_update(bool *status_led, uint8_t &idx, bool &inc) {
+  if (status_led[idx]) {
+    digitalWrite(IND_PIN, !digitalRead(IND_PIN));
+  }
+  if (inc) {
+    idx = (++idx) % 6;
+  }
+  inc = !inc;
+}
+
 void setup_gsm() {
-  mqtt.setup_modem();
-  while (!mqtt.connect_gprs(AIRTEL_APN, AIRTEL_USER, AIRTEL_PASS)) {
+  setup_modem();
+  while (!connect_gprs(AIRTEL_APN, AIRTEL_USER, AIRTEL_PASS)) {
     Serial.println(F("Failed initiating GPRS network"));
     Serial.println(F("Retrying GPRS establishment after 1s..."));
     delay(1000);
   }
+  status_led[1] = true;
   Serial.println("Connected to GPRS: " + String(AIRTEL_APN));
   Serial.println(F("Connecting to MQTT Broker..."));
-  mqtt.set_broker(BROKER_URL, BROKER_PORT);
-  mqtt.connect_broker();
-  while (!mqtt.connect_broker()) {
+  set_broker(BROKER_URL, BROKER_PORT);
+  connect_broker();
+  while (!connect_broker()) {
     Serial.println(F("Failed in connecting to MQTT Broker"));
     Serial.println(F("Retrying connection after 1s..."));
     delay(1000);
   }
+  status_led[2] = true;
   Serial.println(F("Connected to MQTT Broker."));
 }
 
@@ -113,37 +112,44 @@ void setup_mpu6500() {
   // perform calibration for better results
   mpu.calibrateAccelGyro(&calib);
   mpu.init(calib, MPU_ADDR);
+  status_led[3] = true;
 }
 
-void getGpsData() {
+void get_gps_data() {
   char glat[50], glong[50];
   gps.getDataGPRMC(glat, glong);
   gpsdata.latitude = gps.convertLatitude(glat);
   gpsdata.longitude = gps.convertLongitude(glong);
-  mqtt.send_gps_data(gpsdata);
+  send_gps_data(gpsdata);
   Serial.printf("Latitude: %f, Longitude: %f\n", gpsdata.latitude, gpsdata.longitude);
 }
 
-void moveVehicle() {
+void move_vehicle() {
   int mode = 0;
-  motordata.left = MqttClient::control.left;
-  motordata.right = MqttClient::control.right;
-  if (MqttClient::control.rev) {
+  int left = get_control()->left;
+  int right = get_control()->right;
+  if (get_control()->rev) {
     analogWrite(MOTOR_AB1, LOW);
-    analogWrite(MOTOR_AB2, motordata.left);
+    analogWrite(MOTOR_AB2, left);
     analogWrite(MOTOR_CD1, LOW);
-    analogWrite(MOTOR_CD2, motordata.right);
+    analogWrite(MOTOR_CD2, right);
   } else {
-    analogWrite(MOTOR_AB1, motordata.left);
+    analogWrite(MOTOR_AB1, left);
     analogWrite(MOTOR_AB2, LOW);
-    analogWrite(MOTOR_CD1, motordata.right);
+    analogWrite(MOTOR_CD1, right);
     analogWrite(MOTOR_CD2, LOW);
   }
-  mqtt.send_motor_data(motordata);
 
   Serial.println(F("Motor Data:"));
-  Serial.printf("Left Speed: %d\n", motordata.left);
-  Serial.printf("Right Speed: %d\n", motordata.right);
+  Serial.printf("Left Speed: %d\n", left);
+  Serial.printf("Right Speed: %d\n", right);
+}
+
+void apply_brake() {
+  digitalWrite(MOTOR_AB1, LOW);
+  digitalWrite(MOTOR_AB2, LOW);
+  digitalWrite(MOTOR_CD1, LOW);
+  digitalWrite(MOTOR_CD2, LOW);
 }
 
 void get_dhtdata() {
@@ -154,7 +160,7 @@ void get_dhtdata() {
       Serial.println("OK");
       dhtData.temp = dht.temperature;
       dhtData.humid = dht.humidity;
-      mqtt.send_dht_data(dhtData);
+      send_dht_data(dhtData);
       break;
     case DHTLIB_ERROR_CHECKSUM:
       Serial.println("Checksum error");
@@ -172,8 +178,8 @@ void get_mpudata() {
   mpu.update();
   mpu.getAccel(&accelData);
   mpu.getGyro(&gyroData);
-  mqtt.send_gyro_data(gyroData);
-  mqtt.send_accel_data(accelData);
+  send_gyro_data(gyroData);
+  send_accel_data(accelData);
 
   Serial.println(F("Gyroscope Data:"));
   Serial.printf("X axis: %f\n", gyroData.gyroX);
@@ -221,6 +227,7 @@ bool setTofAddress() {
   }
 
   Serial.println(F("All TOFs ready for launch"));
+  status_led[5] = true;
   return false;
 }
 
@@ -235,9 +242,10 @@ inline void resetTof() {
   digitalWrite(XSHUT_1, HIGH);
   digitalWrite(XSHUT_3, HIGH);
   delay(10);
+  status_led[4] = true;
 }
 
-void getRangingResults() {
+void get_ranging_results() {
   lox.begin(TOF_ADDR_4, false);
   lidardata.left = lox.readRange();
 
@@ -250,7 +258,7 @@ void getRangingResults() {
   lox.begin(TOF_ADDR_3, false);
   lidardata.back = lox.readRange();
 
-  mqtt.send_lidar_data(lidardata);
+  send_lidar_data(lidardata);
 
   Serial.println(F("TOF Ranging Results:"));
   Serial.printf("TOF 1: %d\n", lidardata.front);
@@ -259,14 +267,11 @@ void getRangingResults() {
   Serial.printf("TOF 4: %d\n", lidardata.left);
 }
 
-bool checkObstacle() {
-  return LESS_THAN(lidardata.front, SAFE_DISTANCE_MM) || LESS_THAN(lidardata.back, SAFE_DISTANCE_MM) || LESS_THAN(lidardata.left, SAFE_DISTANCE_MM) || LESS_THAN(lidardata.right, SAFE_DISTANCE_MM);
-}
-
-inline void blinkLed() {
-  digitalWrite(IND_PIN, HIGH);
-  delay(BLINK_DURATION);
-  digitalWrite(IND_PIN, LOW);
+bool check_obstacle() {
+  return (get_control()->check_front && GREATER_THAN(lidardata.front, SAFE_DISTANCE_MM)) || 
+    (get_control()->check_back && GREATER_THAN(lidardata.back, SAFE_DISTANCE_MM)) || 
+    (get_control()->check_left && GREATER_THAN(lidardata.left, SAFE_DISTANCE_MM)) || 
+    (get_control()->check_right && GREATER_THAN(lidardata.right, SAFE_DISTANCE_MM));
 }
 
 void setup() {
@@ -283,40 +288,43 @@ void setup() {
   pinMode(XSHUT_3, OUTPUT);
   pinMode(XSHUT_2, OUTPUT);
   pinMode(IND_PIN, OUTPUT);
-  blinkLed();
   Serial.println(F("Pins modes has been set!"));
+
+  HardwareTimer *tim = new HardwareTimer(TIM3);
+  tim->setOverflow(12, HERTZ_FORMAT);
+  tim->attachInterrupt(std::bind(status_led_update, status_led, std::ref(sled_i), std::ref(update_idx)));
+  tim->resume();
 
   Serial.println("Setting up GSM Module...");
   GSM.begin(9600);
+  init_mqtt(GSM);
   setup_gsm();
-  blinkLed();
   Serial.println(F("GSM Module setup completed!"));
 
   Serial.println(F("Setting up MPU6500 Sensor..."));
   setup_mpu6500();
-  blinkLed();
   Serial.println(F("MPU6500 sensor setup completed!"));
 
   Serial.println(F("Setting up ToF sensors..."));
   do {
     resetTof();
   } while (setTofAddress());
-  blinkLed();
   Serial.println(F("ToF sensors setup completed!"));
 
   Serial.println(F("Initialization successfully completed!!!"));
-  digitalWrite(IND_PIN, HIGH);
 }
 
 void loop() {
-  getGpsData();
+  send_network_info();
+  get_gps_data();
   get_dhtdata();
   get_mpudata();
-  getRangingResults();
-  if (checkObstacle()) {
-    moveVehicle();
+  get_ranging_results();
+  if (check_obstacle()) {
+    move_vehicle();
   } else {
+    apply_brake();
     Serial.println(F("There is a block"));
   }
-  mqtt.loop();
+  mqtt_msg_loop();
 }

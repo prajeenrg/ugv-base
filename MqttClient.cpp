@@ -1,14 +1,45 @@
 #include "MqttClient.h"
 
-Control MqttClient::control = {0, 0, 0};
+TinyGsm *modem = NULL;
+TinyGsmClient *client = NULL;
+PubSubClient *mqtt = NULL;
+Control control = {0, 0, 0, false, false, false, false};
 
-MqttClient::MqttClient(HardwareSerial &serial) {
+Control* get_control() {
+  return &control;
+}
+
+void callback(char *topic, byte *payload, unsigned int len) {
+  if (strcmp(topic, TOPIC_CONTROL) == 0) {
+    StaticJsonDocument<300> doc;
+    DeserializationError error = deserializeJson(doc, payload);
+    if (error) {
+      return;
+    }
+
+    control.left = doc["left"];
+    control.right = doc["right"];
+    control.rev = doc["rev"];
+    control.check_left = doc["cleft"];
+    control.check_front = doc["cfront"];
+    control.check_back = doc["cback"];
+    control.check_right = doc["cright"];
+  }
+  if (strcmp(topic, TOPIC_PING) == 0) {
+    byte* p = (byte*)malloc(len);
+    memcpy(p,payload,len);
+    mqtt->publish(TOPIC_CONNECTED, p, len);
+    free(p);
+  }
+}
+
+void init_mqtt(HardwareSerial &serial) {
   modem = new TinyGsm(serial);
   client = new TinyGsmClient(*modem);
   mqtt = new PubSubClient(*client);
 }
 
-void MqttClient::setup_modem() {
+void setup_modem() {
   Serial.println("GSM System Booting...");
   modem->restart();
   Serial.println("Modem Info: " + modem->getModemInfo());
@@ -22,40 +53,25 @@ void MqttClient::setup_modem() {
   Serial.println("Signal Quality: " + String(modem->getSignalQuality()));
 }
 
-bool MqttClient::connect_gprs(const char *apn, const char *user, const char *pass) {
+bool connect_gprs(const char *apn, const char *user, const char *pass) {
   return modem->gprsConnect(apn, user, pass);
 }
 
-void MqttClient::set_broker(const char *broker_url, uint16_t port) {
+void set_broker(const char *broker_url, uint16_t port) {
   mqtt->setServer(broker_url, port);
-  mqtt->setCallback(mqtt_callback);
+  mqtt->setCallback(callback);
 }
 
-bool MqttClient::connect_broker() {
+bool connect_broker() {
   if (!mqtt->connect(CLIENT_ID)) {
     return false;
   }
   mqtt->subscribe(TOPIC_CONTROL);
-  mqtt->publish(TOPIC_CONNECTED, "true");
-  send_network_info();
+  mqtt->subscribe(TOPIC_PING);
   return mqtt->connected();
 }
 
-void MqttClient::mqtt_callback(char *topic, byte *payload, unsigned int len) {
-  if (strcmp(topic, TOPIC_CONTROL)) {
-    return;
-  }
-  StaticJsonDocument<200> doc;
-  DeserializationError error = deserializeJson(doc, payload);
-  if (error) {
-    return;
-  }
-  MqttClient::control.left = doc["left"];
-  MqttClient::control.right = doc["right"];
-  MqttClient::control.rev = doc["rev"];
-}
-
-void MqttClient::send_gps_data(GpsData &data) {
+void send_gps_data(GpsData &data) {
   StaticJsonDocument<56> doc;
   doc["longitude"] = data.longitude;
   doc["latitude"] = data.latitude;
@@ -64,7 +80,7 @@ void MqttClient::send_gps_data(GpsData &data) {
   mqtt->publish(TOPIC_INFO_GPS, payload);
 }
 
-void MqttClient::send_lidar_data(LidarData &data) {
+void send_lidar_data(LidarData &data) {
   StaticJsonDocument<55> doc;
   doc["front"] = data.front;
   doc["back"] = data.back;
@@ -75,16 +91,7 @@ void MqttClient::send_lidar_data(LidarData &data) {
   mqtt->publish(TOPIC_INFO_LIDAR, payload);
 }
 
-void MqttClient::send_motor_data(MotorData &data) {
-  StaticJsonDocument<34> doc;
-  doc["leftSpeed"] = data.left;
-  doc["rightSpeed"] = data.right;
-  char payload[34];
-  serializeJson(doc, payload);
-  mqtt->publish(TOPIC_INFO_MOTOR, payload);
-}
-
-void MqttClient::send_gyro_data(GyroData &data) {
+void send_gyro_data(GyroData &data) {
   StaticJsonDocument<97> doc;
   doc["gyroX"] = data.gyroX;
   doc["gyroY"] = data.gyroY;
@@ -94,7 +101,7 @@ void MqttClient::send_gyro_data(GyroData &data) {
   mqtt->publish(TOPIC_INFO_GYRO, payload);
 }
 
-void MqttClient::send_accel_data(AccelData &data) {
+void send_accel_data(AccelData &data) {
   StaticJsonDocument<97> doc;
   doc["accelX"] = data.accelX;
   doc["accelY"] = data.accelY;
@@ -104,7 +111,7 @@ void MqttClient::send_accel_data(AccelData &data) {
   mqtt->publish(TOPIC_INFO_ACCEL, payload);
 }
 
-void MqttClient::send_dht_data(DhtData &data) {
+void send_dht_data(DhtData &data) {
   StaticJsonDocument<100> doc;
   doc["temperature"] = data.temp;
   doc["humidity"] = data.humid;
@@ -113,28 +120,19 @@ void MqttClient::send_dht_data(DhtData &data) {
   mqtt->publish(TOPIC_INFO_DHT, payload);
 }
 
-void MqttClient::send_network_info() {
-  StaticJsonDocument<300> doc;
+void send_network_info() {
+  StaticJsonDocument<150> doc;
   doc["strength"] = -113 + (2 * modem->getSignalQuality());
   doc["operator"] = modem->getOperator();
   doc["ipaddr"] = modem->getLocalIP();
-  doc["volt"] = modem->getBattVoltage();
   doc["imei"] = modem->getIMEI();
-  doc["imsi"] = modem->getIMSI();
-  doc["ccid"] = modem->getSimCCID();
-  char payload[300];
+  char payload[150];
   serializeJson(doc, payload);
   mqtt->publish(TOPIC_INFO_NETWORK, payload);
 }
 
-void MqttClient::loop() {
+void mqtt_msg_loop() {
   if (mqtt->connected()) {
     mqtt->loop();
   }
-}
-
-MqttClient::~MqttClient() {
-  free(mqtt);
-  free(client);
-  free(modem);
 }

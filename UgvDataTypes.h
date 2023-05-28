@@ -6,11 +6,6 @@ struct GpsData {
   float longitude;
 };
 
-struct MotorData {
-  uint8_t left;
-  uint8_t right;
-};
-
 struct LidarData {
   uint16_t front;
   uint16_t back;
@@ -27,6 +22,10 @@ struct Control {
   uint8_t left;
   uint8_t right;
   bool rev;
+  bool check_left;
+  bool check_right;
+  bool check_front;
+  bool check_back;
 };
 
 #endif
