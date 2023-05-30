@@ -11,7 +11,7 @@
 #include "FastIMU.h"
 #include "UgvDataTypes.h"
 
-#define CLIENT_ID "MITECEUGV-ROVER"
+#define CLIENT_ID "MITECEUGV-RHOVAR"
 
 // topics
 #define TOPIC_INFO_ACCEL "c83929b2-c031-11ed-afa1-0242ac120002/info/accel"
@@ -19,7 +19,6 @@
 #define TOPIC_INFO_LIDAR "c83929b2-c031-11ed-afa1-0242ac120002/info/lidar"
 #define TOPIC_INFO_GPS "c83929b2-c031-11ed-afa1-0242ac120002/info/gps"
 #define TOPIC_INFO_GYRO "c83929b2-c031-11ed-afa1-0242ac120002/info/gyro"
-#define TOPIC_INFO_MOTOR "c83929b2-c031-11ed-afa1-0242ac120002/info/motor"
 #define TOPIC_CONTROL "c83929b2-c031-11ed-afa1-0242ac120002/control"
 #define TOPIC_CONNECTED "c83929b2-c031-11ed-afa1-0242ac120002/connection/status"
 #define TOPIC_PING "c83929b2-c031-11ed-afa1-0242ac120002/connection/ping"

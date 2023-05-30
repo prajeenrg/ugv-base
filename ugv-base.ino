@@ -9,7 +9,6 @@
 #define GREATER_THAN(x, y) x > y
 
 #define SAFE_DISTANCE_MM 50
-#define BLINK_DURATION 200
 
 /* aux pins */
 #define DHT_IO PB5
