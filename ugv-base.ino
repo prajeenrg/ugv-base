@@ -200,7 +200,6 @@ bool setTofAddress() {
   digitalWrite(XSHUT_1, HIGH);
   if (!lox.begin(TOF_ADDR_1, false)) {
     Serial.println(F("FTOF cannot be found"));
-    status_led[1] = false;
     return true;
   } else {
     lox.startRangeContinuous();
@@ -210,7 +209,6 @@ bool setTofAddress() {
   digitalWrite(XSHUT_2, HIGH);
   if (!lox.begin(TOF_ADDR_2, false)) {
     Serial.println(F("RTOF cannot be found"));
-    status_led[2] = false;
     return true;
   } else {
     lox.startRangeContinuous();
@@ -220,7 +218,6 @@ bool setTofAddress() {
   digitalWrite(XSHUT_3, HIGH);
   if (!lox.begin(TOF_ADDR_3, false)) {
     Serial.println(F("BTOF cannot be found"));
-    status_led[3] = false;
     return true;
   } else {
     lox.startRangeContinuous();
@@ -229,7 +226,6 @@ bool setTofAddress() {
 
   if (!lox.begin(TOF_ADDR_4, false)) {
     Serial.println(F("LTOF cannot be found"));
-    status_led[4] = false;
     return true;
   } else {
     lox.startRangeContinuous();
@@ -251,7 +247,7 @@ inline void resetTof() {
   digitalWrite(XSHUT_1, HIGH);
   digitalWrite(XSHUT_3, HIGH);
   delay(10);
-  status_led[4] = true;
+  status_led[1] = status_led[2] = status_led[3] = status_led[4] = false;
 }
 
 void get_ranging_results() {
