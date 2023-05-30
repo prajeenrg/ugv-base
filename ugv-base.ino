@@ -52,7 +52,7 @@
 
 #define MPU_ADDR 0x68  // i2c address for mpu6500
 
-bool status_led[] = {true, false, false, false, false, false};
+bool status_led[] = {false, false, false, false, false, false, false, false, false, false};
 uint8_t sled_i = 0;  // indicates which status to check
 bool update_idx = false; // indicates whether to move to next status
 
@@ -74,7 +74,7 @@ void status_led_update(bool *status_led, uint8_t &idx, bool &inc) {
     digitalWrite(IND_PIN, !digitalRead(IND_PIN));
   }
   if (inc) {
-    idx = (++idx) % 6;
+    idx = (++idx) % 10;
   }
   inc = !inc;
 }
@@ -86,7 +86,7 @@ void setup_gsm() {
     Serial.println(F("Retrying GPRS establishment after 1s..."));
     delay(1000);
   }
-  status_led[1] = true;
+  status_led[8] = true;
   Serial.println("Connected to GPRS: " + String(AIRTEL_APN));
   Serial.println(F("Connecting to MQTT Broker..."));
   set_broker(BROKER_URL, BROKER_PORT);
@@ -96,7 +96,7 @@ void setup_gsm() {
     Serial.println(F("Retrying connection after 1s..."));
     delay(1000);
   }
-  status_led[2] = true;
+  status_led[9] = true;
   Serial.println(F("Connected to MQTT Broker."));
 }
 
@@ -112,7 +112,7 @@ void setup_mpu6500() {
   // perform calibration for better results
   mpu.calibrateAccelGyro(&calib);
   mpu.init(calib, MPU_ADDR);
-  status_led[3] = true;
+  status_led[5] = true;
 }
 
 void get_gps_data() {
@@ -152,7 +152,7 @@ void apply_brake() {
   digitalWrite(MOTOR_CD2, LOW);
 }
 
-void get_dhtdata() {
+int get_dhtdata() {
   Serial.print("DHT Fetch Status: ");
   int chk = dht.read(DHT_IO);
   switch (chk) {
@@ -172,6 +172,7 @@ void get_dhtdata() {
       Serial.println("Unknown error");
       break;
   }
+  return chk;
 }
 
 void get_mpudata() {
@@ -195,39 +196,47 @@ bool setTofAddress() {
   digitalWrite(XSHUT_2, LOW);
   digitalWrite(XSHUT_1, LOW);
   digitalWrite(XSHUT_3, LOW);
-  if (!lox.begin(TOF_ADDR_4, false)) {
-    Serial.println(F("LTOF cannot be found"));
+
+  digitalWrite(XSHUT_1, HIGH);
+  if (!lox.begin(TOF_ADDR_1, false)) {
+    Serial.println(F("FTOF cannot be found"));
+    status_led[1] = false;
     return true;
   } else {
     lox.startRangeContinuous();
+    status_led[1] = true;
   }
 
   digitalWrite(XSHUT_2, HIGH);
   if (!lox.begin(TOF_ADDR_2, false)) {
     Serial.println(F("RTOF cannot be found"));
+    status_led[2] = false;
     return true;
   } else {
     lox.startRangeContinuous();
-  }
-
-  digitalWrite(XSHUT_1, HIGH);
-  if (!lox.begin(TOF_ADDR_1, false)) {
-    Serial.println(F("FTOF cannot be found"));
-    return true;
-  } else {
-    lox.startRangeContinuous();
+    status_led[2] = true;
   }
 
   digitalWrite(XSHUT_3, HIGH);
   if (!lox.begin(TOF_ADDR_3, false)) {
     Serial.println(F("BTOF cannot be found"));
+    status_led[3] = false;
     return true;
   } else {
     lox.startRangeContinuous();
+    status_led[3] = true;
+  }
+
+  if (!lox.begin(TOF_ADDR_4, false)) {
+    Serial.println(F("LTOF cannot be found"));
+    status_led[4] = false;
+    return true;
+  } else {
+    lox.startRangeContinuous();
+    status_led[4] = true;
   }
 
   Serial.println(F("All TOFs ready for launch"));
-  status_led[5] = true;
   return false;
 }
 
@@ -288,28 +297,41 @@ void setup() {
   pinMode(XSHUT_3, OUTPUT);
   pinMode(XSHUT_2, OUTPUT);
   pinMode(IND_PIN, OUTPUT);
+  digitalWrite(IND_PIN, LOW);
   Serial.println(F("Pins modes has been set!"));
 
   HardwareTimer *tim = new HardwareTimer(TIM3);
-  tim->setOverflow(12, HERTZ_FORMAT);
+  tim->setOverflow(20, HERTZ_FORMAT);
   tim->attachInterrupt(std::bind(status_led_update, status_led, std::ref(sled_i), std::ref(update_idx)));
   tim->resume();
 
-  Serial.println("Setting up GSM Module...");
-  GSM.begin(9600);
-  init_mqtt(GSM);
-  setup_gsm();
-  Serial.println(F("GSM Module setup completed!"));
-
-  Serial.println(F("Setting up MPU6500 Sensor..."));
-  setup_mpu6500();
-  Serial.println(F("MPU6500 sensor setup completed!"));
+  status_led[0] = true;
 
   Serial.println(F("Setting up ToF sensors..."));
   do {
     resetTof();
   } while (setTofAddress());
   Serial.println(F("ToF sensors setup completed!"));
+
+  Serial.println(F("Setting up MPU6500 Sensor..."));
+  setup_mpu6500();
+  Serial.println(F("MPU6500 sensor setup completed!"));
+
+  Serial.println(F("Setting up GPS module..."));
+  if (gps.getDataGPGSA()) {
+    status_led[6] = true;
+  }
+  Serial.println(F("Setting up DHT11 Sensor..."));
+  if (get_dhtdata() == 0) {
+    status_led[7] = true;
+  }
+  Serial.println(F("DHT11 Ready..."));
+
+  Serial.println("Setting up GSM Module...");
+  GSM.begin(9600);
+  init_mqtt(GSM);
+  setup_gsm();
+  Serial.println(F("GSM Module setup completed!"));
 
   Serial.println(F("Initialization successfully completed!!!"));
 }

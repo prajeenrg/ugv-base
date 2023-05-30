@@ -333,7 +333,7 @@ float Gpsneo::convertLongitude(char *longitude) {
   return -1;
 }
 
-void Gpsneo::getDataGPGSA() {
+bool Gpsneo::getDataGPGSA() {
 //TODO
 #ifdef GPGSA
   char buffer[BUFFER_SIZE];
@@ -344,8 +344,9 @@ void Gpsneo::getDataGPGSA() {
 
   if (checksum(string)) {
     Serial.println(F("checksum OK---> "));
+    return true;
     //	Serial.println(string);
   }
 #endif
-  return;
+  return false;
 }

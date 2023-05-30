@@ -1,7 +1,7 @@
 #ifndef MQTT_CLIENT_H
 #define MQTT_CLIENT_H
 
-#define TINY_GSM_MODEM_SIM900
+#define TINY_GSM_MODEM_SIM800
 
 #include <HardwareSerial.h>
 #include <TinyGsmClient.h>

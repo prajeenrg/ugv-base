@@ -2,7 +2,7 @@
 #define Gpsneo_h
 #include "HardwareSerial.h"
 //  UNCOMMENT WHAT YOU ARE GOING TO USE
-//#define GPGSA
+#define GPGSA
 
 #define RX_PIN_DEFAULT 10
 #define TX_PIN_DEFAULT 11
@@ -27,6 +27,6 @@ public:
   void getDataGPRMC(char *latitude, char *longitude);
   float convertLongitude(char *longitude);  //convierte los datos de lectura que vienen por defecto , a grados.
   float convertLatitude(char *latitude);
-  void getDataGPGSA();
+  bool getDataGPGSA();
 };
 #endif
