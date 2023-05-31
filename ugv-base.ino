@@ -53,7 +53,6 @@
 
 bool status_led[] = {false, false, false, false, false, false, false, false, false, false};
 uint8_t sled_i = 0;  // indicates which status to check
-bool update_idx = false; // indicates whether to move to next status
 
 /* Global Data Carrying Variables */
 AccelData accelData;
@@ -68,14 +67,15 @@ HardwareSerial GSM(GSM_TX, GSM_RX);
 MPU6500 mpu;
 dht11 dht;
 
-void status_led_update(bool *status_led, uint8_t &idx, bool &inc) {
-  if (status_led[idx]) {
-    digitalWrite(IND_PIN, !digitalRead(IND_PIN));
+void status_led_update(bool *status_led, uint8_t *idx) {
+  if (status_led[*idx]) {
+    digitalWrite(IND_PIN, HIGH);
+    delay(50);
+    digitalWrite(IND_PIN, LOW);
+  } else {
+    digitalWrite(IND_PIN, LOW);
   }
-  if (inc) {
-    idx = (++idx) % 10;
-  }
-  inc = !inc;
+  *idx = (++*idx) % 10;
 }
 
 void setup_gsm() {
@@ -193,10 +193,9 @@ void get_mpudata() {
 
 bool setTofAddress() {
   digitalWrite(XSHUT_2, LOW);
-  digitalWrite(XSHUT_1, LOW);
   digitalWrite(XSHUT_3, LOW);
+  digitalWrite(XSHUT_4, LOW);
 
-  digitalWrite(XSHUT_1, HIGH);
   if (!lox.begin(TOF_ADDR_1, false)) {
     Serial.println(F("FTOF cannot be found"));
     return true;
@@ -223,6 +222,7 @@ bool setTofAddress() {
     status_led[3] = true;
   }
 
+  digitalWrite(XSHUT_4, HIGH);
   if (!lox.begin(TOF_ADDR_4, false)) {
     Serial.println(F("LTOF cannot be found"));
     return true;
@@ -293,11 +293,15 @@ void setup() {
   pinMode(XSHUT_2, OUTPUT);
   pinMode(IND_PIN, OUTPUT);
   digitalWrite(IND_PIN, LOW);
+  digitalWrite(MOTOR_AB1, LOW);
+  digitalWrite(MOTOR_AB2, LOW);
+  digitalWrite(MOTOR_CD1, LOW);
+  digitalWrite(MOTOR_CD2, LOW);
   Serial.println(F("Pins modes has been set!"));
 
-  HardwareTimer *tim = new HardwareTimer(TIM3);
-  tim->setOverflow(20, HERTZ_FORMAT);
-  tim->attachInterrupt(std::bind(status_led_update, status_led, std::ref(sled_i), std::ref(update_idx)));
+  HardwareTimer *tim = new HardwareTimer(TIM4);
+  tim->setOverflow(10, HERTZ_FORMAT);
+  tim->attachInterrupt(std::bind(status_led_update, status_led, &sled_i));
   tim->resume();
 
   status_led[0] = true;
@@ -312,15 +316,17 @@ void setup() {
   setup_mpu6500();
   Serial.println(F("MPU6500 sensor setup completed!"));
 
-  Serial.println(F("Setting up GPS module..."));
-  if (gps.getDataGPGSA()) {
-    status_led[6] = true;
-  }
   Serial.println(F("Setting up DHT11 Sensor..."));
   if (get_dhtdata() == 0) {
-    status_led[7] = true;
+    status_led[6] = true;
   }
   Serial.println(F("DHT11 Ready..."));
+
+  Serial.println(F("Setting up GPS module..."));
+  if (gps.getDataGPGSA()) {
+    status_led[7] = true;
+  }
+  Serial.println(F("GPS successfully setup"));
 
   Serial.println("Setting up GSM Module...");
   GSM.begin(9600);
